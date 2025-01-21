@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from .IOTools import unpackStream, readNullTerminatedString, readLengthPrefixedString, calculatePadding
+from .IOTools import packStream, unpackStream, writeNullTerminatedString, readNullTerminatedString, readLengthPrefixedString, calculatePadding
 
 class A3DMaterial:
     def __init__(self):
@@ -34,6 +34,12 @@ class A3DMaterial:
         self.diffuseMap = readNullTerminatedString(stream)
 
         print(f"[A3DMaterial name: {self.name} color: {self.color} diffuse map: {self.diffuseMap}]")
+
+    def write2(self, stream):
+        writeNullTerminatedString(stream, self.name)
+        colorR, colorG, colorB = self.color
+        packStream("<3f", stream, colorR, colorG, colorB)
+        writeNullTerminatedString(stream, self.diffuseMap)
 
     def read3(self, stream):
         self.name = readLengthPrefixedString(stream)
@@ -70,7 +76,18 @@ class A3DMesh:
             self.submeshes.append(submesh)
         
         print(f"[A3DMesh name: {self.name} bbox max: {self.bboxMax} bbox min: {self.bboxMin} vertex buffers: {len(self.vertexBuffers)} submeshes: {len(self.submeshes)}]")
-    
+
+    def write2(self, stream):
+        # Write vertex buffers
+        packStream("<2I", stream, self.vertexCount, self.vertexBufferCount)
+        for vertexBuffer in self.vertexBuffers:
+            vertexBuffer.write2(stream)
+
+        # Write submeshes
+        packStream("<I", stream, self.submeshCount)
+        for submesh in self.submeshes:
+            submesh.write2(stream)
+
     def read3(self, stream):
         # Read mesh info
         self.name = readLengthPrefixedString(stream)
@@ -126,6 +143,14 @@ class A3DVertexBuffer:
         
         print(f"[A3DVertexBuffer data: {len(self.data)} buffer type: {self.bufferType}]")
 
+    def write2(self):
+        packStream("<I", stream, self.bufferType)
+        vertices = []
+        for vertex in self.data:
+            vertices += list(vertex)
+        for vertex in vertices:
+            packStream("<f", stream, vertex)
+
 class A3DSubmesh:
     def __init__(self):
         self.indices = []
@@ -142,6 +167,14 @@ class A3DSubmesh:
         self.materialID, = unpackStream("<H", stream)
 
         print(f"[A3DSubmesh indices: {len(self.indices)} smoothing groups: {len(self.smoothingGroups)} materialID: {self.materialID}]")
+
+    def write2(self, stream):
+        packStream("<I", stream, self.indexCount//3)
+        for index in self.indices:
+            packStream("<H", stream, index)
+        for smoothingGroup in self.smoothingGroups:
+            packStream("<I", stream, smoothingGroup)
+        packStream("<H", stream, self.materialID)
 
     def read3(self, stream):
         # Read indices
@@ -168,6 +201,11 @@ class A3DTransform:
 
         print(f"[A3DTransform position: {self.position} rotation: {self.rotation} scale: {self.scale}]")
 
+    def write2(self, stream):
+        packStream("<3f", stream, *self.position)
+        packStream("<4f", stream, *self.rotation)
+        packStream("<3f", stream, *self.scale)
+
     def read3(self, stream):
         self.name = readLengthPrefixedString(stream)
         self.position = unpackStream("<3f", stream)
@@ -190,6 +228,10 @@ class A3DObject:
         self.meshID, self.transformID = unpackStream("<2I", stream)
 
         print(f"[A3DObject name: {self.name} meshID: {self.meshID} transformID: {self.transformID} materialIDs: {len(self.materialIDs)}]")
+
+    def write(self, stream):
+        writeNullTerminatedString(stream, self.name)
+        packStream("<2I", stream, self.meshID, self.transformID)
 
     def read3(self, stream):
         self.meshID, self.transformID, self.materialCount = unpackStream("<3I", stream)

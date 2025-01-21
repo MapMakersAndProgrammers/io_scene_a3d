@@ -20,10 +20,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
+from io import BytesIO
+
 import bpy
 from bpy.types import Operator
 from bpy.props import StringProperty, BoolProperty
-from bpy_extras.io_utils import ImportHelper
+from bpy_extras.io_utils import ImportHelper, ExportHelper
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
@@ -61,8 +63,36 @@ class ImportA3D(Operator, ImportHelper):
             modelData.read(file)
         
         # Import data into blender
+        print("Importing data into blender")
         modelImporter = A3DBlenderImporter(modelData, self.directory, self.create_collection, self.reset_empty_transform, self.try_import_textures)
         modelImporter.importData()
+
+        return {"FINISHED"}
+
+class ExportA3D(Operator, ExportHelper):
+    bl_idname = "export_scene.alternativa"
+    bl_label = "Export A3D"
+    bl_description = "Export an A3D model"
+
+    filter_glob: StringProperty(default="*.a3d", options={'HIDDEN'})
+    filename_ext: StringProperty(default=".a3d", options={'HIDDEN'})
+
+    def invoke(self, context, event):
+        return ExportHelper.invoke(self, context, event)
+
+    def execute(self, context):
+        buffer = BytesIO()
+
+        # Export data from blender
+        print("Exporting blender data to A3D")
+        modelData = A3D()
+        modelData.write(buffer)
+
+        # Write the file
+        print(f"Writing A3D data to {self.filepath}")
+        with open(self.filepath, "wb") as file:
+            buffer.seek(0, 0)
+            file.write(buffer.read())
 
         return {"FINISHED"}
 
@@ -80,22 +110,28 @@ def import_panel_options(layout, operator):
 def menu_func_import_a3d(self, context):
     self.layout.operator(ImportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
 
+def menu_func_export_a3d(self, context):
+    self.layout.operator(ExportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
+
 '''
 Registration
 '''
 classes = [
-    ImportA3D
+    ImportA3D,
+    ExportA3D
 ]
 
 def register():
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_a3d)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_a3d)
 
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_a3d)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_a3d)
 
 if __name__ == "__main__":
     register()

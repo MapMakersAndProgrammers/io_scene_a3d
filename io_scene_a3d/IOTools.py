@@ -20,12 +20,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from struct import unpack, calcsize
+from struct import pack, unpack, calcsize
 
 def unpackStream(format, stream):
     size = calcsize(format)
     data = stream.read(size)
     return unpack(format, data)
+
+def packStream(format, stream, *args):
+    data = pack(format, *args)
+    stream.write(data)
 
 def readNullTerminatedString(stream):
     string = b""
@@ -34,6 +38,10 @@ def readNullTerminatedString(stream):
         string += char
         char = stream.read(1)
     return string.decode("utf8", errors="ignore")
+
+def writeNullTerminatedString(stream, string):
+    packStream("<I", len(string))
+    stream.write(string)
 
 def calculatePadding(length):
     # (it basically works with rounding)
