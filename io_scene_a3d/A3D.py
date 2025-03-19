@@ -38,9 +38,12 @@ A3D model object
 '''
 class A3D:
     def __init__(self):
+        self.version = 0
+
         self.materials = []
         self.meshes = []
-        self.transforms = {}
+        self.transforms = []
+        self.transformParentIDs = []
         self.objects = []
 
     '''
@@ -53,14 +56,14 @@ class A3D:
             raise RuntimeError(f"Invalid A3D signature: {signature}")
         
         # Read file version and read version specific data
-        version, _ = unpackStream("<2H", stream) # Likely major.minor version code
-        print(f"Reading A3D version {version}")
+        self.version, _ = unpackStream("<2H", stream) # Likely major.minor version code
+        print(f"Reading A3D version {self.version}")
         
-        if version == 1:
+        if self.version == 1:
             self.readRootBlock1(stream)
-        elif version == 2:
+        elif self.version == 2:
             self.readRootBlock2(stream)
-        elif version == 3:
+        elif self.version == 3:
             self.readRootBlock3(stream)
 
     '''
@@ -175,15 +178,14 @@ class A3D:
 
         # Read data
         print(f"Reading transform block with {transformCount} transforms")
-        transforms = []
         for _ in range(transformCount):
             transform = A3DObjects.A3DTransform()
             transform.read2(stream)
-            transforms.append(transform)
-        # Read and assign transform ids
-        for transformI in range(transformCount):
-            transformID, = unpackStream("<I", stream)
-            self.transforms[transformID] = transforms[transformI]
+            self.transforms.append(transform)
+        # Read parent ids
+        for _ in range(transformCount):
+            parentID, = unpackStream("<i", stream)
+            self.transformParentIDs.append(parentID)
 
     def readTransformBlock3(self, stream):
         # Verify signature
@@ -197,11 +199,11 @@ class A3D:
         for _ in range(transformCount):
             transform = A3DObjects.A3DTransform()
             transform.read3(stream)
-            transforms.append(transform)
-        # Read and assign transform ids
-        for transformI in range(transformCount):
-            transformID, = unpackStream("<I", stream)
-            self.transforms[transformI] = transforms[transformI] #XXX: The IDs seem to be incorrect and instead map to index?
+            self.transforms.append(transform)
+        # Read parent ids
+        for _ in range(transformCount):
+            parentID, = unpackStream("<i", stream)
+            self.transformParentIDs.append(parentID)
 
         # Padding
         padding = calculatePadding(length)

@@ -78,9 +78,24 @@ class A3DBlenderImporter:
         if self.create_collection:
             collection = bpy.data.collections.new("Object")
             bpy.context.collection.children.link(collection)
+        objects = []
         for objectData in self.modelData.objects:
             ob = self.buildBlenderObject(objectData)
+            objects.append(ob)
+        # Assign object parents and link to collection
+        for obI, ob in enumerate(objects):
             collection.objects.link(ob)
+            
+            # Assign parents
+            parentID = self.modelData.transformParentIDs[obI]
+            if parentID == 0 and self.modelData.version < 3:
+                # version 2 models use 0 to signify empty parent
+                continue
+            elif parentID == -1:
+                # version 3 models use -1 to signify empty parent
+                continue
+            parentOB = objects[parentID]
+            ob.parent = parentOB
 
     '''
     Blender data builders

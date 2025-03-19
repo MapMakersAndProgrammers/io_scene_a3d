@@ -1,2 +1,7 @@
+# Build and cache
 __pycache__/
 *.zip
+
+# Editor files
+.venv/
+.vscode/
