@@ -41,7 +41,7 @@ class ImportA3D(Operator, ImportHelper):
     directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN'})
 
     # User options
-    create_collection: BoolProperty(name="Create collection", description="Create a collection to hold all the model objects", default=True)
+    create_collection: BoolProperty(name="Create collection", description="Create a collection to hold all the model objects", default=False)
     try_import_textures: BoolProperty(name="Search for textures", description="Automatically search for lightmap, track and wheel textures and attempt to apply them", default=True)
     reset_empty_transform: BoolProperty(name="Reset empty transforms", description="Reset rotation and scale if it is set to 0, more useful for version 2 models like props", default=True)
 

@@ -48,6 +48,10 @@ def addImageTextureToMaterial(image, node_tree):
     # Apply image
     if image != None: textureNode.image = image
 
+def mirrorUVY(uv):
+    x, y = uv
+    return (x, 1-y)
+
 class A3DBlenderImporter:
     def __init__(self, modelData, directory, create_collection=True, reset_empty_transform=True, try_import_textures=True):
         self.modelData = modelData
@@ -133,49 +137,33 @@ class A3DBlenderImporter:
                 normal2 += vertexBuffer.data
 
         # Add blender vertices
-        blenderVertexIndices = []
-        blenderVertices = []
-        blenderUV1s = []
-        blenderUV2s = []
+        blenderCoordinates = []
+        for coordinate in coordinates:
+            blenderCoordinates += coordinate # Blender doesn't like tuples
+        me.vertices.add(len(blenderCoordinates)//3)
+        me.vertices.foreach_set("co", blenderCoordinates)
+        # Aggregate submesh data and import
+        indices = []
         for submesh in meshData.submeshes:
-            polygonCount = len(submesh.indices) // 3
-            me.vertices.add(polygonCount*3)
-            me.loops.add(polygonCount*3)
-            me.polygons.add(polygonCount)
-
-            for indexI in range(submesh.indexCount):
-                index = submesh.indices[indexI]
-                blenderVertexIndices.append(indexI)
-                blenderVertices += list(coordinates[index])
-            if len(uv1) != 0:
-                for indexI in range(submesh.indexCount):
-                    index = submesh.indices[indexI]
-                    x, y = uv1[index]
-                    blenderUV1s.append((x, 1-y))
-            if len(uv2) != 0:
-                for indexI in range(submesh.indexCount):
-                    index = submesh.indices[indexI]
-                    x, y = uv2[index]
-                    blenderUV2s.append((x, 1-y))
-        me.vertices.foreach_set("co", blenderVertices)
-        me.polygons.foreach_set("loop_start", range(0, len(blenderVertices)//3, 3))
-        me.loops.foreach_set("vertex_index", blenderVertexIndices)
+            indices += submesh.indices
+        me.loops.add(len(indices))
+        me.loops.foreach_set("vertex_index", indices)
+        me.polygons.add(len(indices)//3)
+        me.polygons.foreach_set("loop_start", range(0, len(indices), 3))
 
         # UVs
         if len(uv1) != 0:
             uvData = me.uv_layers.new(name="UV1").data
-            for polygonI, po in enumerate(me.polygons):
-                indexI = polygonI * 3
-                uvData[po.loop_start].uv = blenderUV1s[blenderVertexIndices[indexI]]
-                uvData[po.loop_start+1].uv = blenderUV1s[blenderVertexIndices[indexI+1]]
-                uvData[po.loop_start+2].uv = blenderUV1s[blenderVertexIndices[indexI+2]]
+            for po in me.polygons:
+                uvData[po.loop_start].uv = mirrorUVY(uv1[indices[po.loop_start]])
+                uvData[po.loop_start+1].uv = mirrorUVY(uv1[indices[po.loop_start+1]])
+                uvData[po.loop_start+2].uv = mirrorUVY(uv1[indices[po.loop_start+2]])
         if len(uv2) != 0:
             uvData = me.uv_layers.new(name="UV2").data
-            for polygonI, po in enumerate(me.polygons):
-                indexI = polygonI * 3
-                uvData[po.loop_start].uv = blenderUV2s[blenderVertexIndices[indexI]]
-                uvData[po.loop_start+1].uv = blenderUV2s[blenderVertexIndices[indexI+1]]
-                uvData[po.loop_start+2].uv = blenderUV2s[blenderVertexIndices[indexI+2]]
+            for po in me.polygons:
+                uvData[po.loop_start].uv = mirrorUVY(uv2[indices[po.loop_start]])
+                uvData[po.loop_start+1].uv = mirrorUVY(uv2[indices[po.loop_start+1]])
+                uvData[po.loop_start+2].uv = mirrorUVY(uv2[indices[po.loop_start+2]])
 
         # Apply materials (version 2)
         faceIndexBase = 0
