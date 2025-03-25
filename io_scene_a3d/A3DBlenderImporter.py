@@ -53,14 +53,13 @@ def mirrorUVY(uv):
     return (x, 1-y)
 
 class A3DBlenderImporter:
-    def __init__(self, modelData, directory, create_collection=True, reset_empty_transform=True, try_import_textures=True):
+    def __init__(self, modelData, directory, reset_empty_transform=True, try_import_textures=True):
         self.modelData = modelData
         self.directory = directory
         self.materials = []
         self.meshes = []
 
         # User settings
-        self.create_collection = create_collection
         self.reset_empty_transform = reset_empty_transform
         self.try_import_textures = try_import_textures
 
@@ -78,18 +77,12 @@ class A3DBlenderImporter:
             self.meshes.append(me)
         
         # Create objects
-        collection = bpy.context.collection # By default use the current active collection
-        if self.create_collection:
-            collection = bpy.data.collections.new("Object")
-            bpy.context.collection.children.link(collection)
         objects = []
         for objectData in self.modelData.objects:
             ob = self.buildBlenderObject(objectData)
             objects.append(ob)
         # Assign object parents and link to collection
         for obI, ob in enumerate(objects):
-            collection.objects.link(ob)
-            
             # Assign parents
             parentID = self.modelData.transformParentIDs[obI]
             if parentID == 0 and self.modelData.version < 3:
@@ -100,6 +93,8 @@ class A3DBlenderImporter:
                 continue
             parentOB = objects[parentID]
             ob.parent = parentOB
+        
+        return objects
 
     '''
     Blender data builders

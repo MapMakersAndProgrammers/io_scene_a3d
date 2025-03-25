@@ -21,12 +21,14 @@ SOFTWARE.
 '''
 
 import bpy
-from bpy.types import Operator
-from bpy.props import StringProperty, BoolProperty
+from bpy.types import Operator, OperatorFileListElement
+from bpy.props import StringProperty, BoolProperty, CollectionProperty
 from bpy_extras.io_utils import ImportHelper
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
+
+from glob import glob
 
 '''
 Operators
@@ -39,6 +41,7 @@ class ImportA3D(Operator, ImportHelper):
 
     filter_glob: StringProperty(default="*.a3d", options={'HIDDEN'})
     directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN'})
+    files: CollectionProperty(type=OperatorFileListElement, options={"HIDDEN", "SKIP_SAVE"})
 
     # User options
     create_collection: BoolProperty(name="Create collection", description="Create a collection to hold all the model objects", default=False)
@@ -52,17 +55,26 @@ class ImportA3D(Operator, ImportHelper):
         return ImportHelper.invoke(self, context, event)
 
     def execute(self, context):
-        filepath = self.filepath
+        objects = []
+        for file in self.files:
+            filepath = self.directory + file.name
+            # Read the file
+            print(f"Reading A3D data from {filepath}")
+            modelData = A3D()
+            with open(filepath, "rb") as file:
+                modelData.read(file)
         
-        # Read the file
-        print(f"Reading A3D data from {filepath}")
-        modelData = A3D()
-        with open(filepath, "rb") as file:
-            modelData.read(file)
-        
-        # Import data into blender
-        modelImporter = A3DBlenderImporter(modelData, self.directory, self.create_collection, self.reset_empty_transform, self.try_import_textures)
-        modelImporter.importData()
+            # Import data into blender
+            modelImporter = A3DBlenderImporter(modelData, self.directory, self.reset_empty_transform, self.try_import_textures)
+            objects += modelImporter.importData()
+
+        # Link objects to collection
+        collection = bpy.context.collection
+        if self.create_collection:
+            collection = bpy.data.collections.new("Collection")
+            bpy.context.collection.children.link(collection)
+        for obI, ob in enumerate(objects):
+            collection.objects.link(ob)
 
         return {"FINISHED"}
 
