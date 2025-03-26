@@ -163,7 +163,8 @@ class A3DBlenderImporter:
         # Apply materials (version 2)
         faceIndexBase = 0
         for submeshI, submesh in enumerate(meshData.submeshes):
-            if submesh.materialID == None:
+            if submesh.materialID == None or len(self.materials) == 0: #XXX: perhaps try add a material slot to the object so we still make use of the submesh data instead of skipping it when there are no materials?
+                # if materialID is None then this is a version 3 model submesh
                 continue
             me.materials.append(self.materials[submesh.materialID])
             for faceI in range(submesh.indexCount//3):
