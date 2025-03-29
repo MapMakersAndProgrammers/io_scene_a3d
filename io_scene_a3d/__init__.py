@@ -27,6 +27,7 @@ from bpy_extras.io_utils import ImportHelper
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
+from .BattleMap import BattleMap
 
 from glob import glob
 
@@ -40,8 +41,8 @@ class ImportA3D(Operator, ImportHelper):
     bl_options = {'PRESET', 'UNDO'}
 
     filter_glob: StringProperty(default="*.a3d", options={'HIDDEN'})
-    directory: StringProperty(subtype='DIR_PATH', options={'HIDDEN'})
-    files: CollectionProperty(type=OperatorFileListElement, options={"HIDDEN", "SKIP_SAVE"})
+    directory: StringProperty(subtype="DIR_PATH", options={'HIDDEN'})
+    files: CollectionProperty(type=OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
 
     # User options
     create_collection: BoolProperty(name="Create collection", description="Create a collection to hold all the model objects", default=False)
@@ -78,6 +79,29 @@ class ImportA3D(Operator, ImportHelper):
 
         return {"FINISHED"}
 
+class ImportBattleMap(Operator, ImportHelper):
+    bl_idname = "import_scene.tanki_battlemap"
+    bl_label = "Import map"
+    bl_description = "Import a BIN format Tanki Online map file"
+    bl_options = {'PRESET', 'UNDO'}
+
+    filter_glob: StringProperty(default="*.bin", options={'HIDDEN'})
+    directory: StringProperty(subtype="DIR_PATH", options={'HIDDEN'})
+
+    def draw(self, context):
+        pass
+
+    def invoke(self, context, event):
+        return ImportHelper.invoke(self, context, event)
+    
+    def execute(self, context):
+        print(f"Reading BattleMap data from {self.filepath}")
+        mapData = BattleMap()
+        with open(self.filepath, "rb") as file:
+            mapData.read(file)
+
+        return {"FINISHED"}
+
 '''
 Menu
 '''
@@ -92,22 +116,28 @@ def import_panel_options(layout, operator):
 def menu_func_import_a3d(self, context):
     self.layout.operator(ImportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
 
+def menu_func_import_battlemap(self, context):
+    self.layout.operator(ImportBattleMap.bl_idname, text="Tanki Online BattleMap (.bin)")
+
 '''
 Registration
 '''
 classes = [
-    ImportA3D
+    ImportA3D,
+    ImportBattleMap
 ]
 
 def register():
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_a3d)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import_battlemap)
 
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_a3d)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_battlemap)
 
 if __name__ == "__main__":
     register()
