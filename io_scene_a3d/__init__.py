@@ -21,15 +21,28 @@ SOFTWARE.
 '''
 
 import bpy
-from bpy.types import Operator, OperatorFileListElement
+from bpy.types import Operator, OperatorFileListElement, AddonPreferences
 from bpy.props import StringProperty, BoolProperty, CollectionProperty
 from bpy_extras.io_utils import ImportHelper
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
 from .BattleMap import BattleMap
+from .BattleMapBlenderImporter import BattleMapBlenderImporter
 
 from glob import glob
+
+'''
+Addon preferences
+'''
+class Preferences(AddonPreferences):
+    bl_idname = __package__
+
+    propLibrarySourcePath: StringProperty(name="Prop library source path", subtype='FILE_PATH')
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "propLibrarySourcePath")
 
 '''
 Operators
@@ -100,6 +113,16 @@ class ImportBattleMap(Operator, ImportHelper):
         with open(self.filepath, "rb") as file:
             mapData.read(file)
 
+        # Import data into blender
+        preferences = context.preferences.addons[__package__].preferences
+        mapImporter = BattleMapBlenderImporter(mapData, preferences.propLibrarySourcePath)
+        objects = mapImporter.importData()
+
+        # Link objects
+        collection = bpy.context.collection
+        for ob in objects:
+            collection.objects.link(ob)
+
         return {"FINISHED"}
 
 '''
@@ -123,6 +146,7 @@ def menu_func_import_battlemap(self, context):
 Registration
 '''
 classes = [
+    Preferences,
     ImportA3D,
     ImportBattleMap
 ]

@@ -36,11 +36,12 @@ class AtlasRect:
         self.y = 0
 
     def read(self, stream, optionalMask):
-        print("Read AtlasRect")
         self.height, = unpackStream(">I", stream)
         self.libraryName = AlternativaProtocol.readString(stream)
         self.name = AlternativaProtocol.readString(stream)
         self.width, self.x, self.y = unpackStream(">3I", stream)
+
+        print(f"[AtlasRect height: {self.height} libraryName: {self.libraryName} name: {self.name} width: {self.width} x: {self.x} y: {self.y}]")
 
 class CollisionBox:
     def __init__(self):
@@ -49,10 +50,11 @@ class CollisionBox:
         self.size = (0.0, 0.0, 0.0)
 
     def read(self, stream, optionalMask):
-        print("Read CollisionBox")
         self.position = unpackStream(">3f", stream)
         self.rotation = unpackStream(">3f", stream)
         self.size = unpackStream(">3f", stream)
+        
+        # print(f"[CollisionBox position: {self.position} rotation: {self.rotation} size: {self.size}]")
 
 class CollisionPlane:
     def __init__(self):
@@ -62,11 +64,12 @@ class CollisionPlane:
         self.width = 0.0
 
     def read(self, stream, optionalMask):
-        print("Read CollisionPlane")
         self.length, = unpackStream(">d", stream)
         self.position = unpackStream(">3f", stream)
         self.rotation = unpackStream(">3f", stream)
         self.width, = unpackStream(">d", stream)
+        
+        # print(f"[CollisionPlane lenght: {self.length} position: {self.position} rotation: {self.rotation} width: {self.width}]")
 
 class CollisionTriangle:
     def __init__(self):
@@ -78,13 +81,14 @@ class CollisionTriangle:
         self.v2 = (0.0, 0.0, 0.0)
 
     def read(self, stream, optionalMask):
-        print("Read CollisionTriangle")
         self.length, = unpackStream(">d", stream)
         self.position = unpackStream(">3f", stream)
         self.rotation = unpackStream(">3f", stream)
         self.v0 = unpackStream(">3f", stream)
         self.v1 = unpackStream(">3f", stream)
         self.v2 = unpackStream(">3f", stream)
+        
+        # print(f"[CollisionTriangle length: {self.length} position: {self.position} rotation: {self.rotation} v0: {self.v0} v1: {self.v1} v2: {self.v2}]")
 
 class ScalarParameter:
     def __init__(self):
@@ -92,7 +96,6 @@ class ScalarParameter:
         self.value = 0.0
 
     def read(self, stream, optionalMask):
-        print("Read ScalarParameters")
         self.name = AlternativaProtocol.readString(stream)
         self.value, = unpackStream(">f", stream)
 
@@ -105,7 +108,6 @@ class TextureParameter:
         self.libraryName = None
 
     def read(self, stream, optionalMask):
-        print("Read TextureParameter")
         if optionalMask.getOptional():
             self.libraryName = AlternativaProtocol.readString(stream)
         self.name = AlternativaProtocol.readString(stream)
@@ -117,7 +119,6 @@ class Vector2Parameter:
         self.value = (0.0, 0.0)
     
     def __init__(self, stream, optionalMask):
-        print("Read Vector2Parameters")
         self.name = AlternativaProtocol.readString(stream)
         self.value = unpackStream(">2f", stream)
 
@@ -127,7 +128,6 @@ class Vector3Parameter:
         self.value = (0.0, 0.0, 0.0)
     
     def __init__(self, stream, optionalMask):
-        print("Read Vector3Parameters")
         self.name = AlternativaProtocol.readString(stream)
         self.value = unpackStream(">3f", stream)
 
@@ -137,7 +137,6 @@ class Vector4Parameter:
         self.value = (0.0, 0.0, 0.0, 0.0)
     
     def read(self, stream, optionalMask):
-        print("Read Vector4Parameters")
         self.name = AlternativaProtocol.readString(stream)
         self.value = unpackStream(">4f", stream)
 
@@ -243,7 +242,6 @@ class SpawnPoint:
         self.type = 0
 
     def read(self, stream, optionalMask):
-        print("Read SpawnPoint")
         self.position = unpackStream(">3f", stream)
         self.rotation = unpackStream(">3f", stream)
         self.type, = unpackStream(">I", stream)
@@ -259,10 +257,9 @@ class Prop:
         # Optional
         self.groupName = ""
         self.rotation = (0.0, 0.0, 0.0)
-        self.scale = (0.0, 0.0, 0.0)
+        self.scale = (1.0, 1.0, 1.0)
 
     def read(self, stream, optionalMask):
-        print(f"Read Prop")
         if optionalMask.getOptional():
             self.groupName = AlternativaProtocol.readString(stream)
         self.ID, = unpackStream(">I", stream)
@@ -305,11 +302,6 @@ class BattleMap:
 
         # Read packet
         packet = AlternativaProtocol.readPacket(stream)
-        with open("packet.bin", "wb") as packetFile:
-            packetFile.write(
-                packet.read()
-            )
-            packet.seek(0)
         optionalMask = AlternativaProtocol.OptionalMask()
         optionalMask.read(packet)
 
