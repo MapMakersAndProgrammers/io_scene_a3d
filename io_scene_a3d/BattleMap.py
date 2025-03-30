@@ -235,6 +235,25 @@ class Material:
         if optionalMask.getOptional():
             self.vector4Parameters = AlternativaProtocol.readObjectArray(stream, Vector4Parameter, optionalMask)
 
+#TODO: tanki has more than this number of spawn types now, investigate it
+BATTLEMAP_SPAWNPOINTTYPE_DM = 0
+BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMA = 1
+BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMB = 2
+BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMA = 3
+BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMB = 4
+BATTLEMAP_SPAWNPOINTTYPE_TEAMA = 5
+BATTLEMAP_SPAWNPOINTTYPE_TEAMB = 6
+BATTLEMAP_SPAWNPOINTTYPE_UNKNOWN = 7
+BattleMapSpawnPointTypeName = {
+    BATTLEMAP_SPAWNPOINTTYPE_DM: "Deathmatch",
+    BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMA: "DominationTeamA",
+    BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMB: "DominationTeamB",
+    BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMA: "RugbyTeamA",
+    BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMB: "RugbyTeamB",
+    BATTLEMAP_SPAWNPOINTTYPE_TEAMA: "TeamA",
+    BATTLEMAP_SPAWNPOINTTYPE_TEAMB: "TeamB",
+    BATTLEMAP_SPAWNPOINTTYPE_UNKNOWN: "Unknown"
+}
 class SpawnPoint:
     def __init__(self):
         self.position = (0.0, 0.0, 0.0)
@@ -279,8 +298,8 @@ class BattleMap:
     def __init__(self):
         self.atlases = []
         self.batches = []
-        self.collisionGeometry = []
-        self.collisionGeometryOutsideGamingZone = []
+        self.collisionGeometry = None
+        self.collisionGeometryOutsideGamingZone = None
         self.materials = []
         self.spawnPoints = []
         self.staticGeometry = []

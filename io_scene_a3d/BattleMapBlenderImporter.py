@@ -22,6 +22,8 @@ SOFTWARE.
 
 from json import load
 
+import bpy
+
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
 
@@ -67,20 +69,61 @@ class BattleMapBlenderImporter:
     # Allows subsequent map loads to be faster
     libraryCache = {}
 
-    def __init__(self, mapData, propLibrarySourcePath):
+    def __init__(self, mapData, propLibrarySourcePath, import_static_geom=True, import_collision_geom=False, import_spawn_points=False):
         self.mapData = mapData
         self.propLibrarySourcePath = propLibrarySourcePath
+        self.import_static_geom = import_static_geom
+        self.import_collision_geom = import_collision_geom
+        self.import_spawn_points = import_spawn_points
 
     def importData(self):
         print("Importing BattleMap data into blender")
 
-        # Load props
         propObjects = []
-        for propData in self.mapData.staticGeometry:
-            ob = self.getBlenderProp(propData)
-            propObjects.append(ob)
-        
-        return propObjects
+        if self.import_static_geom:
+            # Load props
+            for propData in self.mapData.staticGeometry:
+                ob = self.getBlenderProp(propData)
+                propObjects.append(ob)
+        collisionObjects = []
+        if self.import_collision_geom:
+            # Load collision meshes
+            collisionTriangles = self.mapData.collisionGeometry.triangles + self.mapData.collisionGeometryOutsideGamingZone.triangles
+            collisionTriangleObjects = self.createBlenderCollisionTriangles(collisionTriangles)
+            collisionPlanes = self.mapData.collisionGeometry.planes + self.mapData.collisionGeometryOutsideGamingZone.planes
+            collisionPlaneObjects = self.createBlenderCollisionPlanes(collisionPlanes)
+            collisionBoxes = self.mapData.collisionGeometry.boxes + self.mapData.collisionGeometryOutsideGamingZone.boxes
+            collisionBoxObjects = self.createBlenderCollisionBoxes(collisionBoxes)
+
+            collisionObjects += collisionTriangleObjects
+            collisionObjects += collisionPlaneObjects
+            collisionObjects += collisionBoxObjects
+        spawnPointObjects = []
+        if self.import_spawn_points:
+            # Create spawn points
+            for spawnPointData in self.mapData.spawnPoints:
+                ob = self.createBlenderSpawnPoint(spawnPointData)
+                spawnPointObjects.append(ob)
+
+        # Create empty objects to house each type of object
+        objects = propObjects + collisionObjects + spawnPointObjects
+        if self.import_static_geom:
+            groupOB = bpy.data.objects.new("StaticGeometry", None)
+            objects.append(groupOB)
+            for ob in propObjects:
+                ob.parent = groupOB
+        if self.import_collision_geom:
+            groupOB = bpy.data.objects.new("CollisionGeometry", None)
+            objects.append(groupOB)
+            for ob in collisionObjects:
+                ob.parent = groupOB
+        if self.import_spawn_points:
+            groupOB = bpy.data.objects.new("SpawnPoints", None)
+            objects.append(groupOB)
+            for ob in spawnPointObjects:
+                ob.parent = groupOB
+
+        return objects
 
     def getBlenderProp(self, propData):
         # First check if we've already loaded the required prop library
@@ -103,3 +146,62 @@ class BattleMapBlenderImporter:
         propOB.scale = propData.scale
         
         return propOB
+    
+    def createBlenderCollisionTriangles(self, collisionTriangles):
+        objects = []
+        for collisionTriangle in collisionTriangles:
+            # Create the mesh
+            me = bpy.data.meshes.new("collisionTriangle")
+            
+            # Create array for coordinate data, blender doesn't like tuples
+            vertices = []
+            vertices += collisionTriangle.v0
+            vertices += collisionTriangle.v1
+            vertices += collisionTriangle.v2
+
+            # Assign coordinates
+            me.vertices.add(3)
+            me.vertices.foreach_set("co", vertices)
+            me.loops.add(3)
+            me.loops.foreach_set("vertex_index", [0, 1, 2])
+            me.polygons.add(1)
+            me.polygons.foreach_set("loop_start", [0])
+
+            me.validate()
+            me.update()
+
+            # Create object
+            ob = bpy.data.objects.new("collisionTriangle", me)
+            ob.location = collisionTriangle.position
+            ob.rotation_mode = "XYZ"
+            ob.rotation_euler = collisionTriangle.rotation
+            #print(collisionTriangle.length) # XXX: how to handle collisionTriangle.length?
+            
+            objects.append(ob)
+
+        return objects
+    
+    def createBlenderCollisionPlanes(self, collisionPlanes):
+        objects = []
+        for collisionPlane in collisionPlanes:
+            pass
+
+        return objects
+
+    def createBlenderCollisionBoxes(self, collisionBoxes):
+        objects = []
+        for collisionBox in collisionBoxes:
+            pass
+
+        return objects
+    
+    def createBlenderSpawnPoint(self, spawnPointData):
+        #TODO: implement spawn type name lookup
+        ob = bpy.data.objects.new(f"SpawnPoint_{spawnPointData.type}", None)
+        ob.empty_display_type = "ARROWS"
+        ob.empty_display_size = 100
+        ob.location = spawnPointData.position
+        ob.rotation_mode = "XYZ"
+        ob.rotation_euler = spawnPointData.rotation
+        
+        return ob

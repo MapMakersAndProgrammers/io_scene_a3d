@@ -63,7 +63,7 @@ class ImportA3D(Operator, ImportHelper):
     reset_empty_transform: BoolProperty(name="Reset empty transforms", description="Reset rotation and scale if it is set to 0, more useful for version 2 models like props", default=True)
 
     def draw(self, context):
-        import_panel_options(self.layout, self)
+        import_panel_options_a3d(self.layout, self)
 
     def invoke(self, context, event):
         return ImportHelper.invoke(self, context, event)
@@ -101,8 +101,13 @@ class ImportBattleMap(Operator, ImportHelper):
     filter_glob: StringProperty(default="*.bin", options={'HIDDEN'})
     directory: StringProperty(subtype="DIR_PATH", options={'HIDDEN'})
 
+    # User options
+    import_static_geom: BoolProperty(name="Import static geometry", description="Static geometry includes all the visual aspects of the map", default=True)
+    import_collision_geom: BoolProperty(name="Import collision geometry", description="Collision geometry defines the geometry used for collision checks and cannot normally be seen by players", default=False)
+    import_spawn_points: BoolProperty(name="Import spawn points", description="Places a marker at locations where tanks can spawn", default=False)
+
     def draw(self, context):
-        pass
+        import_panel_options_battlemap(self.layout, self)
 
     def invoke(self, context, event):
         return ImportHelper.invoke(self, context, event)
@@ -114,8 +119,8 @@ class ImportBattleMap(Operator, ImportHelper):
             mapData.read(file)
 
         # Import data into blender
-        preferences = context.preferences.addons[__package__].preferences
-        mapImporter = BattleMapBlenderImporter(mapData, preferences.propLibrarySourcePath)
+        preferences = context.preferences.addons[__package__].preferences # TODO: check if this is set before proceeding
+        mapImporter = BattleMapBlenderImporter(mapData, preferences.propLibrarySourcePath, self.import_static_geom, self.import_collision_geom, self.import_spawn_points)
         objects = mapImporter.importData()
 
         # Link objects
@@ -128,13 +133,21 @@ class ImportBattleMap(Operator, ImportHelper):
 '''
 Menu
 '''
-def import_panel_options(layout, operator):
+def import_panel_options_a3d(layout, operator):
     header, body = layout.panel("alternativa_import_options", default_closed=False)
     header.label(text="Options")
     if body:
         body.prop(operator, "create_collection")
         body.prop(operator, "try_import_textures")
         body.prop(operator, "reset_empty_transform")
+
+def import_panel_options_battlemap(layout, operator):
+    header, body = layout.panel("tanki_battlemap_import_options", default_closed=False)
+    header.label(text="Options")
+    if body:
+        body.prop(operator, "import_static_geom")
+        body.prop(operator, "import_collision_geom")
+        body.prop(operator, "import_spawn_points")
 
 def menu_func_import_a3d(self, context):
     self.layout.operator(ImportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
