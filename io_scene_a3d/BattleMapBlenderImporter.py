@@ -23,10 +23,13 @@ SOFTWARE.
 from json import load
 
 import bpy
+from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
+from bpy_extras.image_utils import load_image
 import bmesh
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
+from .BlenderUtils import addImageTextureToMaterial
 
 class PropLibrary:
     propCache = {}
@@ -64,7 +67,10 @@ class PropLibrary:
             self.propCache[name] = ob
         
         return self.propCache[name]
-
+    
+    def getTexture(self, textureName):
+        im = load_image(textureName, self.directory)
+        return im
 
 class BattleMapBlenderImporter:
     # Allows subsequent map loads to be faster
@@ -77,8 +83,15 @@ class BattleMapBlenderImporter:
         self.import_collision_geom = import_collision_geom
         self.import_spawn_points = import_spawn_points
 
+        self.materials = {}
+
     def importData(self):
         print("Importing BattleMap data into blender")
+
+        # Process materials
+        for materialData in self.mapData.materials:
+            ma = self.createBlenderMaterial(materialData)
+            self.materials[materialData.ID] = ma
 
         propObjects = []
         if self.import_static_geom:
@@ -145,7 +158,11 @@ class BattleMapBlenderImporter:
         propOB.rotation_mode = "XYZ"
         propOB.rotation_euler = propData.rotation
         propOB.scale = propData.scale
-        
+
+        # Material
+        ma = self.materials[propData.materialID]
+        propOB.data.materials[0] = ma
+
         return propOB
     
     def createBlenderCollisionTriangles(self, collisionTriangles):
@@ -236,3 +253,28 @@ class BattleMapBlenderImporter:
         ob.rotation_euler = spawnPointData.rotation
         
         return ob
+    
+    def createBlenderMaterial(self, materialData):
+        ma = bpy.data.materials.new(f"{materialData.ID}_{materialData.name}")
+
+        # Shader specific logic
+        if materialData.shader == "TankiOnline/SingleTextureShader":
+            # First check if we've already loaded the required prop library
+            if not "Remaster" in self.libraryCache:
+                # Load the proplib
+                libraryPath = f"{self.propLibrarySourcePath}/Remaster" # XXX: Get platform agnostic way of doing this
+                library = PropLibrary(libraryPath)
+                self.libraryCache["Remaster"] = library
+
+            # Try load texture
+            textureParameter = materialData.textureParameters[0]
+            library = self.libraryCache["Remaster"] #XXX: libraryName is optional
+            image = library.getTexture(f"{textureParameter.textureName}.webp")
+
+            # Apply texture
+            maWrapper = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            addImageTextureToMaterial(image, ma.node_tree)
+        elif materialData.shader == "TankiOnline/SpriteShader":
+            pass
+
+        return ma

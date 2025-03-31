@@ -32,21 +32,7 @@ from .A3DObjects import (
     A3D_VERTEXTYPE_COLOR,
     A3D_VERTEXTYPE_NORMAL2
 )
-
-def addImageTextureToMaterial(image, node_tree):
-    nodes = node_tree.nodes
-    links = node_tree.links
-    
-    # Check if this material already has a texture on it
-    if len(nodes) > 2:
-        return
-
-    # Create nodes
-    principledBSDFNode = nodes[0]
-    textureNode = nodes.new(type="ShaderNodeTexImage")
-    links.new(textureNode.outputs["Color"], principledBSDFNode.inputs["Base Color"])
-    # Apply image
-    if image != None: textureNode.image = image
+from .BlenderUtils import addImageTextureToMaterial
 
 def mirrorUVY(uv):
     x, y = uv
