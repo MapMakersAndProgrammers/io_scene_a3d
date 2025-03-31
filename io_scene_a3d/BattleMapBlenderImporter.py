@@ -23,6 +23,7 @@ SOFTWARE.
 from json import load
 
 import bpy
+import bmesh
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
@@ -180,18 +181,48 @@ class BattleMapBlenderImporter:
             objects.append(ob)
 
         return objects
-    
+
     def createBlenderCollisionPlanes(self, collisionPlanes):
         objects = []
         for collisionPlane in collisionPlanes:
-            pass
+            # Create the mesh
+            me = bpy.data.meshes.new("collisionPlane")
+            
+            bm = bmesh.new()
+            bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.0)
+            bm.to_mesh(me)
+            bm.free()
+
+            # Create object
+            ob = bpy.data.objects.new("collisionPlane", me)
+            ob.location = collisionPlane.position
+            ob.rotation_mode = "XYZ"
+            ob.rotation_euler = collisionPlane.rotation
+            ob.scale = (collisionPlane.width*0.5, collisionPlane.length*0.5, 1.0) # Unsure why they double the width and length, could be because of central origin?
+
+            objects.append(ob)
 
         return objects
 
     def createBlenderCollisionBoxes(self, collisionBoxes):
         objects = []
         for collisionBox in collisionBoxes:
-            pass
+            # Create the mesh
+            me = bpy.data.meshes.new("collisionBox")
+            
+            bm = bmesh.new()
+            bmesh.ops.create_cube(bm)
+            bm.to_mesh(me)
+            bm.free()
+
+            # Create object
+            ob = bpy.data.objects.new("collisionBox", me)
+            ob.location = collisionBox.position
+            ob.rotation_mode = "XYZ"
+            ob.rotation_euler = collisionBox.rotation
+            ob.scale = collisionBox.size
+
+            objects.append(ob)
 
         return objects
     
