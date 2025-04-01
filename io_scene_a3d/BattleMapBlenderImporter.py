@@ -23,13 +23,13 @@ SOFTWARE.
 from json import load
 
 import bpy
-from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
 from bpy_extras.image_utils import load_image
+from bpy_extras.node_shader_utils import PrincipledBSDFWrapper
 import bmesh
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
-from .BlenderUtils import addImageTextureToMaterial
+from .BlenderMaterialUtils import addImageTextureToMaterial
 
 class PropLibrary:
     propCache = {}
@@ -139,16 +139,22 @@ class BattleMapBlenderImporter:
 
         return objects
 
-    def getBlenderProp(self, propData):
+    def getPropLibrary(self, libraryName):
         # First check if we've already loaded the required prop library
-        if not propData.libraryName in self.libraryCache:
+        if not libraryName in self.libraryCache:
             # Load the proplib
-            libraryPath = f"{self.propLibrarySourcePath}/{propData.libraryName}" # XXX: Get platform agnostic way of doing this
+            libraryPath = f"{self.propLibrarySourcePath}/{libraryName}" # XXX: Get platform agnostic way of doing this
             library = PropLibrary(libraryPath)
-            self.libraryCache[propData.libraryName] = library
+            self.libraryCache[libraryName] = library
 
+        return self.libraryCache[libraryName]
+
+    '''
+    Blender data builders
+    '''
+    def getBlenderProp(self, propData):
         # Load prop
-        propLibrary = self.libraryCache[propData.libraryName]
+        propLibrary = self.getPropLibrary(propData.libraryName)
         propOB = propLibrary.getProp(propData.name, propData.groupName)
         propOB = propOB.copy() # We want to use a copy of the prop object
         
@@ -259,22 +265,28 @@ class BattleMapBlenderImporter:
 
         # Shader specific logic
         if materialData.shader == "TankiOnline/SingleTextureShader":
-            # First check if we've already loaded the required prop library
-            if not "Remaster" in self.libraryCache:
-                # Load the proplib
-                libraryPath = f"{self.propLibrarySourcePath}/Remaster" # XXX: Get platform agnostic way of doing this
-                library = PropLibrary(libraryPath)
-                self.libraryCache["Remaster"] = library
+            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            bsdf.roughness = 1.0
+            bsdf.ior = 1.0
 
             # Try load texture
             textureParameter = materialData.textureParameters[0]
-            library = self.libraryCache["Remaster"] #XXX: libraryName is optional
-            image = library.getTexture(f"{textureParameter.textureName}.webp")
+            propLibrary = self.getPropLibrary("Remaster")
+            texture = propLibrary.getTexture(f"{textureParameter.textureName}.webp")
 
-            # Apply texture
-            maWrapper = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
-            addImageTextureToMaterial(image, ma.node_tree)
+            addImageTextureToMaterial(texture, ma.node_tree)
         elif materialData.shader == "TankiOnline/SpriteShader":
+            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            bsdf.roughness = 1.0
+            bsdf.ior = 1.0
+
+            # Try load texture
+            textureParameter = materialData.textureParameters[0]
+            propLibrary = self.getPropLibrary("Remaster")
+            texture = propLibrary.getTexture(f"{textureParameter.textureName}.webp")
+
+            addImageTextureToMaterial(texture, ma.node_tree, linkAlpha=True)
+        elif materialData.shader == "TankiOnline/Terrain":
             pass
 
         return ma

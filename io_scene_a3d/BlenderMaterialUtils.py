@@ -20,17 +20,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-def addImageTextureToMaterial(image, node_tree):
+from bpy.types import ShaderNodeBsdfPrincipled
+
+'''
+Functions
+'''
+def addImageTextureToMaterial(image, node_tree, linkAlpha=False):
     nodes = node_tree.nodes
     links = node_tree.links
     
-    # Check if this material already has a texture on it
+    # Check if this material has already been edited
     if len(nodes) > 2:
         return
 
     # Create nodes
-    principledBSDFNode = nodes[0]
+    bsdfNode = nodes.get("Principled BSDF")
     textureNode = nodes.new(type="ShaderNodeTexImage")
-    links.new(textureNode.outputs["Color"], principledBSDFNode.inputs["Base Color"])
+    links.new(textureNode.outputs["Color"], bsdfNode.inputs["Base Color"])
+    if linkAlpha:
+        links.new(textureNode.outputs["Alpha"], bsdfNode.inputs["Alpha"])
+
     # Apply image
     if image != None: textureNode.image = image

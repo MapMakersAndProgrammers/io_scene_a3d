@@ -32,7 +32,7 @@ from .A3DObjects import (
     A3D_VERTEXTYPE_COLOR,
     A3D_VERTEXTYPE_NORMAL2
 )
-from .BlenderUtils import addImageTextureToMaterial
+from .BlenderMaterialUtils import addImageTextureToMaterial
 
 def mirrorUVY(uv):
     x, y = uv
