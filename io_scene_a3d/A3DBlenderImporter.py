@@ -157,8 +157,16 @@ class A3DBlenderImporter:
                 me.polygons[faceI+faceIndexBase].material_index = submeshI
             faceIndexBase += submesh.indexCount//3
 
-        # Finalise
+        #XXX: call this before we assign split normals, if you do not it causes a segmentation fault
         me.validate()
+
+        # Split normals
+        if len(normal1) != 0:
+            me.normals_split_custom_set_from_vertices(normal1)
+        elif len(normal2) != 0:
+            me.normals_split_custom_set_from_vertices(normal2)
+
+        # Finalise
         me.update()
         return me
 
