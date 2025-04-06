@@ -253,7 +253,7 @@ class BattleMapBlenderImporter:
         #TODO: implement spawn type name lookup
         ob = bpy.data.objects.new(f"SpawnPoint_{spawnPointData.type}", None)
         ob.empty_display_type = "ARROWS"
-        ob.empty_display_size = 100
+        ob.empty_display_size = 100 # The map will be at 100x scale so it's a good idea to match that here
         ob.location = spawnPointData.position
         ob.rotation_mode = "XYZ"
         ob.rotation_euler = spawnPointData.rotation
@@ -266,8 +266,8 @@ class BattleMapBlenderImporter:
         # Shader specific logic
         if materialData.shader == "TankiOnline/SingleTextureShader":
             bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
-            bsdf.roughness = 1.0
-            bsdf.ior = 1.0
+            bsdf.roughness_set(1.0)
+            bsdf.ior_set(1.0)
 
             # Try load texture
             textureParameter = materialData.textureParameters[0]
@@ -277,8 +277,8 @@ class BattleMapBlenderImporter:
             addImageTextureToMaterial(texture, ma.node_tree)
         elif materialData.shader == "TankiOnline/SpriteShader":
             bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
-            bsdf.roughness = 1.0
-            bsdf.ior = 1.0
+            bsdf.roughness_set(1.0)
+            bsdf.ior_set(1.0)
 
             # Try load texture
             textureParameter = materialData.textureParameters[0]
@@ -287,6 +287,10 @@ class BattleMapBlenderImporter:
 
             addImageTextureToMaterial(texture, ma.node_tree, linkAlpha=True)
         elif materialData.shader == "TankiOnline/Terrain":
-            pass
+            # XXX: still need to figure out how to do the terrain properly, all manual attempts have yielded mixed results
+            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            bsdf.roughness_set(1.0)
+            bsdf.ior_set(1.0)
+            bsdf.base_color_set((0.0, 0.0, 0.0))
 
         return ma

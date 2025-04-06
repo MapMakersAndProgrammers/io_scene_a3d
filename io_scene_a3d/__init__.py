@@ -31,6 +31,7 @@ from .BattleMap import BattleMap
 from .BattleMapBlenderImporter import BattleMapBlenderImporter
 
 from glob import glob
+from time import time
 
 '''
 Addon preferences
@@ -69,6 +70,8 @@ class ImportA3D(Operator, ImportHelper):
         return ImportHelper.invoke(self, context, event)
 
     def execute(self, context):
+        importStartTime = time()
+
         objects = []
         for file in self.files:
             filepath = self.directory + file.name
@@ -89,6 +92,9 @@ class ImportA3D(Operator, ImportHelper):
             bpy.context.collection.children.link(collection)
         for obI, ob in enumerate(objects):
             collection.objects.link(ob)
+
+        importEndTime = time()
+        self.report({'INFO'}, f"Imported {len(objects)} objects in {importEndTime-importStartTime}s")
 
         return {"FINISHED"}
 
@@ -114,6 +120,9 @@ class ImportBattleMap(Operator, ImportHelper):
     
     def execute(self, context):
         print(f"Reading BattleMap data from {self.filepath}")
+        
+        importStartTime = time()
+        
         mapData = BattleMap()
         with open(self.filepath, "rb") as file:
             mapData.read(file)
@@ -127,6 +136,9 @@ class ImportBattleMap(Operator, ImportHelper):
         collection = bpy.context.collection
         for ob in objects:
             collection.objects.link(ob)
+        
+        importEndTime = time()
+        self.report({'INFO'}, f"Imported {len(objects)} objects in {importEndTime-importStartTime}s")
 
         return {"FINISHED"}
 
