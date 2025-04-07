@@ -274,7 +274,7 @@ class Prop:
         self.position = (0.0, 0.0, 0.0)
 
         # Optional
-        self.groupName = ""
+        self.groupName = None
         self.rotation = (0.0, 0.0, 0.0)
         self.scale = (1.0, 1.0, 1.0)
 
