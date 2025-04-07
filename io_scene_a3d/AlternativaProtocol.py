@@ -1,5 +1,5 @@
 '''
-Copyright (c) 2024 Pyogenics
+Copyright (c) 2025 Pyogenics
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,173 +20,144 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from io import BytesIO
-from struct import unpack
-from array import array
 from zlib import decompress
+from io import BytesIO
 
-class OptionalMask:
-    def __init__(self):
-        self.optionalMask = []
+from .IOTools import unpackStream
 
-    def read(self, stream):
-        print("Read optional mask")
-        # Read "Null-mask" field
-        nullMask = b""
-        nullMaskOffset = 0
+def unwrapPacket(stream):
+    print("Unwrapping packet")
 
-        nullMaskField = int.from_bytes(stream.read(1), "little")
-        nullMaskType = nullMaskField & 0b10000000
-        if nullMaskType == 0:
-            # Short null-mask: 5-29 bits
-            nullMaskLength = nullMaskField & 0b01100000
-            
-            nullMask += bytes(nullMaskField & 0b00011111)
-            nullMask += stream.read(nullMaskLength) # 1,2 or 3 bytes
-            nullMaskOffset = 3
-        else:
-            # Long null-mask: 64 - 4194304 bytes
-            nullMaskLengthSize = nullMaskField & 0b01000000
-            nullMaskLength = nullMaskField & 0b00111111
-            if nullMaskLengthSize > 0:
-                # Long length: 22 bits
-                nullMaskLength = nullMaskLength << 16
-                nullMaskLength += int.from_bytes(stream.read(2), "big")
-            else:
-                # Short length: 6 bits
-                pass
-            
-            nullMask += stream.read(nullMaskLength)
-            nullMaskOffset = 0
+    # Determine size and compression
+    packetFlags = int.from_bytes(stream.read(1))
+    compressedPacket = (packetFlags & 0b01000000) > 0
 
-        nullMask = BytesIO(nullMask)
-        # Process first byte (the first byte is missing some bits on some nullmask configs)
-        maskByte = int.from_bytes(nullMask.read(1))
-        for bitI in range(7 - nullMaskOffset, -1, -1):
-            self.optionalMask.append(
-                not bool(maskByte & (2**bitI))
-            )
-
-        # Process the rest of the bytes
-        for maskByte in nullMask.read():
-            for bitI in range(7, -1, -1):
-                self.optionalMask.append(
-                    not bool(maskByte & (2**bitI))
-                )
-
-        print(f"Optional mask flags: {len(self.optionalMask)}")
-
-    def getOptional(self):
-        optional = self.optionalMask.pop(0)
-        return optional
-
-    def getOptionals(self, count):
-        optionals = ()
-        for _ in range(count):
-            optionals += (self.optionalMask.pop(0),)
-        return optionals
-
-    def getLength(self):
-        return len(self.optionalMask)
-
-def readPacket(stream):
-    print("Reading packet")
-
-    # Read "Package Length" field
-    packageLength = 0
-    packageGzip = False
-
-    packageLengthField = int.from_bytes(stream.read(1), "little")
-    packageLengthSize = packageLengthField & 0b10000000
-    if packageLengthSize == 0:
-        # Short package: 14 bits
-        packageLength += (packageLengthField & 0b00111111) << 8
-        packageLength += int.from_bytes(stream.read(1), "little")
-
-        packageGzip = packageLengthField & 0b01000000
+    packetLength = 0
+    packetLengthType = packetFlags & 0b10000000
+    if packetLengthType == 0:
+        # This is a short packet
+        packetLength = int.from_bytes(stream.read(1))
+        packetLength += (packetFlags & 0b00111111) << 8 # Part of the length is embedded in the flags field
     else:
-        # Long package: 31 bits
-        packageLength += (packageLengthField & 0b00111111) << 24
-        packageLength += int.from_bytes(stream.read(3), "little")
-
-        packageGzip = packageLengthField & 0b01000000
-
-    # Decompress gzip data
-    package = stream.read()
-    if packageGzip:
-        print("Decompressing packet")
-        package = decompress(package)
-    package = BytesIO(package)
+        # This is a long packet
+        packetLength = int.from_bytes(stream.read(3), "big")
+        packetLength += (packetFlags & 0b00111111) << 24
     
-    return package
+    # Decompress the packet if needed
+    packetData = stream.read(packetLength)
+    if compressedPacket:
+        print("Decompressing packet")
+        packetData = decompress(packetData)
+
+    return BytesIO(packetData)
+
+def readOptionalMask(stream):
+    print("Reading optional mask")
+
+    optionalMask = []
+
+    # Determine mask type (there are multiple length types)
+    maskFlags = int.from_bytes(stream.read(1))
+    maskLengthType = maskFlags & 0b10000000
+    if maskLengthType == 0:
+        # Short mask: 5 optional bits + upto 3 extra bytes
+        # First read the integrated optional bits
+        integratedOptionalBits = maskFlags << 3 # Trim flag bits so we're left with the optionals and some padding bits
+        for bitI in range(7, 2, -1): #0b11111000 left to right
+            optional = (integratedOptionalBits & 2**bitI) == 0
+            optionalMask.append(optional)
+
+        # Now read the external bytes
+        externalByteCount = (maskFlags & 0b01100000) >> 5
+        externalBytes = stream.read(externalByteCount)
+        for externalByte in externalBytes:
+            for bitI in range(7, -1, -1): #0b11111111 left to right
+                optional = (externalByte & 2**bitI) == 0
+                optionalMask.append(optional)
+    else:
+        # This type of mask encodes an extra length/count field to increase the number of possible optionals significantly
+        maskLengthType = maskFlags & 0b01000000
+        externalByteCount = 0
+        if maskLengthType == 0:
+            # Medium mask: stores number of bytes used for the optional mask in the last 6 bits of the flags
+            externalByteCount = maskFlags & 0b00111111
+        else:
+            # Long mask: # Medium mask: stores number of bytes used for the optional mask in the last 6 bits of the flags + 2 extra bytes
+            externalByteCount = (maskFlags & 0b00111111) << 16
+            externalByteCount += int.from_bytes(stream.read(2), "big")
+        
+        # Read the external bytes
+        externalBytes = stream.read(externalByteCount)
+        for externalByte in externalBytes:
+            for bitI in range(7, -1, -1): #0b11111111 left to right
+                optional = (externalByte & 2**bitI) == 0
+                optionalMask.append(optional)
+
+    optionalMask.reverse()
+    return optionalMask
 
 '''
-Array
+Array type readers
 '''
-def readArrayLength(package):
+def readArrayLength(packet):
     arrayLength = 0
 
-    arrayField = int.from_bytes(package.read(1), "little")
-    arrayLengthType = arrayField & 0b10000000
-    # Short array length
+    arrayFlags = int.from_bytes(packet.read(1))
+    arrayLengthType = arrayFlags & 0b10000000
     if arrayLengthType == 0:
-        # Length of the array is contained in the last 7 bits of this byte
-        arrayLength = arrayField & 0b01111111
-    else: # Must be large array length
-        longArrayLengthType = arrayField & 0b01000000
-        # Length in last 6 bits + next byte
-        if longArrayLengthType == 0:
-            lengthByte = int.from_bytes(package.read(1), "little")
-            arrayLength = (arrayField & 0b00111111) << 8
-            arrayLength += lengthByte
-        else: # Length in last 6 bits + next 2 bytes
-            lengthBytes = int.from_bytes(package.read(2), "big")
-            arrayLength = (arrayField & 0b00111111) << 16
-            arrayLength += lengthBytes
+        # Short array
+        arrayLength = arrayFlags & 0b01111111
+    else:
+        # Long array
+        arrayLengthType = arrayFlags & 0b01000000
+        if arrayLengthType == 0:
+            # Length in last 6 bits of flags + next byte
+            arrayLength = (arrayFlags & 0b00111111) << 8
+            arrayLength += int.from_bytes(packet.read(1))
+        else:
+            # Length in last 6 bits of flags + next 2 byte
+            arrayLength = (arrayFlags & 0b00111111) << 16
+            arrayLength += int.from_bytes(packet.read(2), "big")
 
     return arrayLength
 
-def readObjectArray(package, objReader, optionalMask):
-    length = readArrayLength(package)
+def readObjectArray(packet, objReader, optionalMask):
+    arrayLength = readArrayLength(packet)
     objects = []
-    for _ in range(length):
+    for _ in range(arrayLength):
         obj = objReader()
-        obj.read(package, optionalMask)
+        obj.read(packet, optionalMask)
         objects.append(obj)
 
     return objects
 
-def readString(package):
-    stringLength = readArrayLength(package)
-    string = package.read(stringLength)
+def readString(packet):
+    stringLength = readArrayLength(packet)
+    string = packet.read(stringLength)
     string = string.decode("utf-8")
 
     return string
 
-def readInt16Array(package):
-    length = readArrayLength(package)
-    integers = unpack(f"{length}h", package.read(length*2))
-    integers = array("h", integers)
+def readInt16Array(packet):
+    arrayLength = readArrayLength(packet)
+    integers = unpackStream(f"{arrayLength}h", packet)
 
-    return integers
+    return list(integers)
 
-def readIntArray(package):
-    length = readArrayLength(package)
-    integers = unpack(f"{length}i", package.read(length*4))
-    integers = array("i", integers)
+def readIntArray(packet):
+    arrayLength = readArrayLength(packet)
+    integers = unpackStream(f"{arrayLength}i", packet)
 
-    return integers
+    return list(integers)
 
-def readInt64Array(package):
-    length = readArrayLength(package)
-    integers = unpack(f"{length}q", package.read(length*8))
-    integers = array("q", integers)
+def readInt64Array(packet):
+    arrayLength = readArrayLength(packet)
+    integers = unpackStream(f"{arrayLength}q", packet)
 
-    return integers
+    return list(integers)
 
-def readFloatArray(package):
-    length = readArrayLength(package)
-    floats = unpack(f">{length}f", package.read(length*4))
-    floats = array("f", floats)
+def readFloatArray(packet):
+    arrayLength = readArrayLength(packet)
+    floats = unpackStream(f">{arrayLength}f", packet)
 
-    return floats
+    return list(floats)

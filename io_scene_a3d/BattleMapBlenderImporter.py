@@ -244,8 +244,14 @@ class BattleMapBlenderImporter:
         propOB.name = f"{propData.name}_{propData.ID}"
         propOB.location = propData.position
         propOB.rotation_mode = "XYZ"
-        propOB.rotation_euler = propData.rotation
-        propOB.scale = propData.scale
+        propRotation = propData.rotation
+        if propRotation == None:
+            propRotation = (0.0, 0.0, 0.0)
+        propOB.rotation_euler = propRotation
+        propScale = propData.scale
+        if propScale == None:
+            propScale = (1.0, 1.0, 1.0)
+        propOB.scale = propScale
 
         # Material
         ma = self.materials[propData.materialID]

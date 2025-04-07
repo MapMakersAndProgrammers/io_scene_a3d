@@ -41,8 +41,6 @@ class AtlasRect:
         self.name = AlternativaProtocol.readString(stream)
         self.width, self.x, self.y = unpackStream(">3I", stream)
 
-        print(f"[AtlasRect height: {self.height} libraryName: {self.libraryName} name: {self.name} width: {self.width} x: {self.x} y: {self.y}]")
-
 class CollisionBox:
     def __init__(self):
         self.position = (0.0, 0.0, 0.0)
@@ -53,8 +51,6 @@ class CollisionBox:
         self.position = unpackStream(">3f", stream)
         self.rotation = unpackStream(">3f", stream)
         self.size = unpackStream(">3f", stream)
-        
-        # print(f"[CollisionBox position: {self.position} rotation: {self.rotation} size: {self.size}]")
 
 class CollisionPlane:
     def __init__(self):
@@ -68,8 +64,6 @@ class CollisionPlane:
         self.position = unpackStream(">3f", stream)
         self.rotation = unpackStream(">3f", stream)
         self.width, = unpackStream(">d", stream)
-        
-        # print(f"[CollisionPlane lenght: {self.length} position: {self.position} rotation: {self.rotation} width: {self.width}]")
 
 class CollisionTriangle:
     def __init__(self):
@@ -87,8 +81,6 @@ class CollisionTriangle:
         self.v0 = unpackStream(">3f", stream)
         self.v1 = unpackStream(">3f", stream)
         self.v2 = unpackStream(">3f", stream)
-        
-        # print(f"[CollisionTriangle length: {self.length} position: {self.position} rotation: {self.rotation} v0: {self.v0} v1: {self.v1} v2: {self.v2}]")
 
 class ScalarParameter:
     def __init__(self):
@@ -108,7 +100,7 @@ class TextureParameter:
         self.libraryName = None
 
     def read(self, stream, optionalMask):
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.libraryName = AlternativaProtocol.readString(stream)
         self.name = AlternativaProtocol.readString(stream)
         self.textureName = AlternativaProtocol.readString(stream)
@@ -151,24 +143,7 @@ class Atlas:
         self.rects = []
         self.width = 0
 
-    # Get the rect's texture from an atlas
-    # XXX: Handle padding?
-    def resolveRectImage(self, rectName, atlasImage):
-        rect = None
-        for childRect in self.rects:
-            if childRect.name == rectName:
-                rect = childRect
-        if rect == None:
-            raise RuntimeError(f"Couldn't find rect with name: {rectName}")
-        
-        # Cut the texture out
-        rectTexture = atlasImage.crop(
-            (rect.x, rect.y, rect.x+rect.width, rect.y+rect.height)
-        )
-        return rectTexture
-
     def read(self, stream, optionalMask):
-        print("Read Atlas")
         self.height, unpackStream(">i", stream)
         self.name = AlternativaProtocol.readString(stream)
         self.padding = unpackStream(">I", stream)
@@ -183,7 +158,6 @@ class Batch:
         self.propIDs = ""
 
     def read(self, stream, optionalMask):
-        print("Read Batch")
         self.materialID, = unpackStream(">I", stream)
         self.name = AlternativaProtocol.readString(stream)
         self.position = unpackStream(">3f", stream)
@@ -196,7 +170,6 @@ class CollisionGeometry:
         self.triangles = []
 
     def read(self, stream, optionalMask):
-        print("Read CollisionGeometry")
         self.boxes = AlternativaProtocol.readObjectArray(stream, CollisionBox, optionalMask)
         self.planes = AlternativaProtocol.readObjectArray(stream, CollisionPlane, optionalMask)
         self.triangles = AlternativaProtocol.readObjectArray(stream, CollisionTriangle, optionalMask)
@@ -214,46 +187,20 @@ class Material:
         self.vector3Parameters = None
         self.vector4Parameters = None
 
-    def getTextureParameterByName(self, name):
-        for textureParameter in self.textureParameters:
-            if textureParameter.name == name: return textureParameter
-
-        raise RuntimeError(f"Couldn't find texture parameter with name: {name}")
-
     def read(self, stream, optionalMask):
-        print(f"Read Material")
         self.ID, = unpackStream(">I", stream)
         self.name = AlternativaProtocol.readString(stream)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.scalarParameters = AlternativaProtocol.readObjectArray(stream, ScalarParameter, optionalMask)
         self.shader = AlternativaProtocol.readString(stream)
         self.textureParameters = AlternativaProtocol.readObjectArray(stream, TextureParameter, optionalMask)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.vector2Parameters = AlternativaProtocol.readObjectArray(stream, Vector2Parameter, optionalMask)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.vector3Parameters = AlternativaProtocol.readObjectArray(stream, Vector3Parameter, optionalMask)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.vector4Parameters = AlternativaProtocol.readObjectArray(stream, Vector4Parameter, optionalMask)
 
-#TODO: tanki has more than this number of spawn types now, investigate it
-BATTLEMAP_SPAWNPOINTTYPE_DM = 0
-BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMA = 1
-BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMB = 2
-BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMA = 3
-BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMB = 4
-BATTLEMAP_SPAWNPOINTTYPE_TEAMA = 5
-BATTLEMAP_SPAWNPOINTTYPE_TEAMB = 6
-BATTLEMAP_SPAWNPOINTTYPE_UNKNOWN = 7
-BattleMapSpawnPointTypeName = {
-    BATTLEMAP_SPAWNPOINTTYPE_DM: "Deathmatch",
-    BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMA: "DominationTeamA",
-    BATTLEMAP_SPAWNPOINTTYPE_DOM_TEAMB: "DominationTeamB",
-    BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMA: "RugbyTeamA",
-    BATTLEMAP_SPAWNPOINTTYPE_RUGBY_TEAMB: "RugbyTeamB",
-    BATTLEMAP_SPAWNPOINTTYPE_TEAMA: "TeamA",
-    BATTLEMAP_SPAWNPOINTTYPE_TEAMB: "TeamB",
-    BATTLEMAP_SPAWNPOINTTYPE_UNKNOWN: "Unknown"
-}
 class SpawnPoint:
     def __init__(self):
         self.position = (0.0, 0.0, 0.0)
@@ -275,20 +222,20 @@ class Prop:
 
         # Optional
         self.groupName = None
-        self.rotation = (0.0, 0.0, 0.0)
-        self.scale = (1.0, 1.0, 1.0)
+        self.rotation = None
+        self.scale = None
 
     def read(self, stream, optionalMask):
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.groupName = AlternativaProtocol.readString(stream)
         self.ID, = unpackStream(">I", stream)
         self.libraryName = AlternativaProtocol.readString(stream)
         self.materialID, = unpackStream(">I", stream)
         self.name = AlternativaProtocol.readString(stream)
         self.position = unpackStream(">3f", stream)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.rotation = unpackStream(">3f", stream)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.scale = unpackStream(">3f", stream)
 
 '''
@@ -305,35 +252,25 @@ class BattleMap:
         self.staticGeometry = []
 
     '''
-    Getters
-    '''
-    def getMaterialByID(self, materialID):
-        for material in self.materials:
-            if material.ID == materialID: return material
-        
-        raise RuntimeError(f"Couldn't find material with ID: {materialID}")
-
-    '''
     IO
     '''
     def read(self, stream):
-        print("Reading BIN map")
+        print("Reading BattleMap")
 
         # Read packet
-        packet = AlternativaProtocol.readPacket(stream)
-        optionalMask = AlternativaProtocol.OptionalMask()
-        optionalMask.read(packet)
+        packet = AlternativaProtocol.unwrapPacket(stream)
+        optionalMask = AlternativaProtocol.readOptionalMask(packet)
 
         # Read data
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.atlases = AlternativaProtocol.readObjectArray(packet, Atlas, optionalMask)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.batches = AlternativaProtocol.readObjectArray(packet, Batch, optionalMask)
         self.collisionGeometry = CollisionGeometry()
         self.collisionGeometry.read(packet, optionalMask)
         self.collisionGeometryOutsideGamingZone = CollisionGeometry()
         self.collisionGeometryOutsideGamingZone.read(packet, optionalMask)
         self.materials = AlternativaProtocol.readObjectArray(packet, Material, optionalMask)
-        if optionalMask.getOptional():
+        if optionalMask.pop():
             self.spawnPoints = AlternativaProtocol.readObjectArray(packet, SpawnPoint, optionalMask)
         self.staticGeometry = AlternativaProtocol.readObjectArray(packet, Prop, optionalMask)
