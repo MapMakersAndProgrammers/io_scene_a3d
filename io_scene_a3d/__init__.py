@@ -29,6 +29,7 @@ from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
 from .BattleMap import BattleMap
 from .BattleMapBlenderImporter import BattleMapBlenderImporter
+from .LightmapData import LightmapData
 
 from glob import glob
 from time import time
@@ -122,14 +123,18 @@ class ImportBattleMap(Operator, ImportHelper):
         print(f"Reading BattleMap data from {self.filepath}")
         
         importStartTime = time()
-        
+
+        lightmapData = LightmapData()
+        with open(f"{self.directory}/lightmapdata", "rb") as file:
+            lightmapData.read(file)
+
         mapData = BattleMap()
         with open(self.filepath, "rb") as file:
             mapData.read(file)
 
         # Import data into blender
         preferences = context.preferences.addons[__package__].preferences # TODO: check if this is set before proceeding
-        mapImporter = BattleMapBlenderImporter(mapData, preferences.propLibrarySourcePath, self.import_static_geom, self.import_collision_geom, self.import_spawn_points)
+        mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.import_static_geom, self.import_collision_geom, self.import_spawn_points)
         objects = mapImporter.importData()
 
         # Link objects

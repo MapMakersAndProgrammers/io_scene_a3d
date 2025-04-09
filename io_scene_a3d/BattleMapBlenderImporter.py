@@ -30,7 +30,7 @@ from mathutils import Matrix
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
-from .BlenderMaterialUtils import addImageTextureToMaterial
+from .BlenderMaterialUtils import addImageTextureToMaterial, decodeIntColorToTuple
 
 class Prop:
     def __init__(self):
@@ -150,8 +150,9 @@ class BattleMapBlenderImporter:
     # Allows subsequent map loads to be faster
     libraryCache = {}
 
-    def __init__(self, mapData, propLibrarySourcePath, import_static_geom=True, import_collision_geom=False, import_spawn_points=False):
+    def __init__(self, mapData, lightmapData, propLibrarySourcePath, import_static_geom=True, import_collision_geom=False, import_spawn_points=False):
         self.mapData = mapData
+        self.lightmapData = lightmapData
         self.propLibrarySourcePath = propLibrarySourcePath
         self.import_static_geom = import_static_geom
         self.import_collision_geom = import_collision_geom
@@ -211,6 +212,26 @@ class BattleMapBlenderImporter:
             for ob in spawnPointObjects:
                 ob.parent = groupOB
 
+        # Create a sun light object
+        li = bpy.data.lights.new("DirectionalLight", "SUN")
+        li.color = decodeIntColorToTuple(self.lightmapData.lightColour)
+        
+        ob = bpy.data.objects.new(li.name, li)
+        ob.location = (0.0, 0.0, 1000.0) # Just place it like 10 meters off the ground (in alternativa units)
+        lightAngleX, lightAngleZ = self.lightmapData.lightAngle
+        ob.rotation_mode = "XYZ"
+        ob.rotation_euler = (lightAngleX, 0.0, lightAngleZ)
+        objects.append(ob)
+
+        # Set ambient world light
+        scene = bpy.context.scene
+        if scene.world == None:
+            wd = bpy.data.worlds.new("map")
+            scene.world = wd
+        world = scene.world
+        world.use_nodes = False
+        world.color = decodeIntColorToTuple(self.lightmapData.ambientLightColour)
+
         return objects
 
     def getPropLibrary(self, libraryName):
@@ -252,6 +273,16 @@ class BattleMapBlenderImporter:
         if propScale == None:
             propScale = (1.0, 1.0, 1.0)
         propOB.scale = propScale
+
+        # Lighting info
+        lightingMapObject = None
+        for mapObject in self.lightmapData.mapObjects:
+            if mapObject.index == propData.ID:
+                lightingMapObject = mapObject
+                break
+        if lightingMapObject != None:
+            #XXX: do something with lightingMapObject.recieveShadows??
+            propOB.visible_shadow = lightingMapObject.castShadows
 
         # Material
         ma = self.materials[propData.materialID]

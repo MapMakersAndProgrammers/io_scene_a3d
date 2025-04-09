@@ -20,8 +20,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from bpy.types import ShaderNodeBsdfPrincipled
-
 '''
 Functions
 '''
@@ -42,3 +40,12 @@ def addImageTextureToMaterial(image, node_tree, linkAlpha=False):
 
     # Apply image
     if image != None: textureNode.image = image
+
+def decodeIntColorToTuple(intColor):
+    # Fromat is argb
+    a = (intColor >> 24) & 255
+    r = (intColor >> 16) & 255
+    g = (intColor >> 8) & 255
+    b = intColor & 255
+    
+    return (r/255, g/255, b/255)
