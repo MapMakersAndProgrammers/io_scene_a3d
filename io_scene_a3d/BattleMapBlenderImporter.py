@@ -32,120 +32,6 @@ from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
 from .BlenderMaterialUtils import addImageTextureToMaterial, decodeIntColorToTuple
 
-class Prop:
-    def __init__(self):
-        self.objects = []
-        self.mainObject = None
-
-    def loadModel(self, modelPath):
-        fileExtension = modelPath.split(".")[-1]
-        if fileExtension == "a3d":
-            modelData = A3D()
-            with open(modelPath, "rb") as file: modelData.read(file)
-
-            # Import the model
-            modelImporter = A3DBlenderImporter(modelData, None, reset_empty_transform=False, try_import_textures=False)
-            self.objects = modelImporter.importData()
-        elif fileExtension == "3ds":
-            bpy.ops.import_scene.max3ds(filepath=modelPath, use_apply_transform=False)
-            for ob in bpy.context.selectable_objects:
-                # The imported objects are added to the active collection, remove them
-                bpy.context.collection.objects.unlink(ob)
-                
-                # Correct the origin XXX: this does not work for all cases, investigate more
-                ob.animation_data_clear()
-                x, y, z = -ob.location.x, -ob.location.y, -ob.location.z
-                objectOrigin = Matrix.Translation((x, y, z))
-                ob.data.transform(objectOrigin)
-                ob.location = (0.0, 0.0, 0.0)
-
-                self.objects.append(ob)
-        else:
-            raise RuntimeError(f"Unknown model file extension: {fileExtension}")
-        
-        # Identify the main parent object
-        for ob in self.objects:
-            if ob.parent == None: self.mainObject = ob
-        if self.mainObject == None:
-            raise RuntimeError(f"Unable to find the parent object for: {modelPath}")
-
-    def loadSprite(self, propInfo):
-        spriteInfo = propInfo["sprite"]
-
-        # Create a plane we can use for the sprite
-        me = bpy.data.meshes.new(propInfo["name"])
-
-        # bm = bmesh.new()
-        # bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=spriteInfo["scale"]*100)
-        # bm.to_mesh(me)
-        # bm.free()
-
-        ob = bpy.data.objects.new(me.name, me)
-
-        # Assign data
-        ob.scale = (spriteInfo["width"], 1.0, spriteInfo["height"]) #XXX: this should involve spriteInfo["scale"] probably?
-        spriteOrigin = Matrix.Translation((0.0, spriteInfo["originY"], 0.0))
-        me.transform(spriteOrigin)
-
-        # Finalise
-        self.objects.append(ob)
-        self.mainObject = ob
-
-class PropLibrary:
-    propGroups = {}
-    def __init__(self, directory):
-        self.directory = directory
-        self.libraryInfo = {}
-
-        # Load library info
-        with open(f"{self.directory}/library.json", "r") as file: self.libraryInfo = load(file)
-        print(f"Loaded prop library: " + self.libraryInfo["name"])
-
-    def getProp(self, propName, groupName):
-        # Create the prop group if it's not already loaded
-        if not groupName in self.propGroups:
-            self.propGroups[groupName] = {}
-        
-        # Load the prop if it's not already loaded
-        if not propName in self.propGroups[groupName]:
-            # Find the prop group
-            groupInfo = None
-            for group in self.libraryInfo["groups"]:
-                if group["name"] == groupName:
-                    groupInfo = group
-                    break
-            if groupInfo == None:
-                raise RuntimeError(f"Unable to find prop group with name {groupName} in " + self.libraryInfo["name"])
-            
-            # Find the prop
-            propInfo = None
-            for prop in groupInfo["props"]:
-                if prop["name"] == propName:
-                    propInfo = prop
-                    break
-            if propInfo == None:
-                raise RuntimeError(f"Unable to find prop with name {propName} in {groupName} from " + self.libraryInfo["name"])
-            
-            # Create the prop
-            prop = Prop()
-            meshInfo = propInfo["mesh"]
-            spriteInfo = propInfo["sprite"]
-            if meshInfo != None:
-                modelPath = f"{self.directory}/" + meshInfo["file"]
-                prop.loadModel(modelPath)
-            elif spriteInfo != None:
-                prop.loadSprite(propInfo)
-            else:
-                #XXX: Uhhhhhh, empty prop?
-                pass
-            self.propGroups[groupName][propName] = prop
-        
-        return self.propGroups[groupName][propName]
-
-    def getTexture(self, textureName):
-        im = load_image(textureName, self.directory)
-        return im
-
 class BattleMapBlenderImporter:
     # Allows subsequent map loads to be faster
     libraryCache = {}
@@ -170,12 +56,16 @@ class BattleMapBlenderImporter:
             ma = self.createBlenderMaterial(materialData)
             self.materials[materialData.ID] = ma
 
+        # Static geometry
         propObjects = []
         if self.import_static_geom:
             # Load props
             for propData in self.mapData.staticGeometry:
                 ob = self.getBlenderProp(propData)
                 propObjects.append(ob)
+        print(f"Loaded {len(propObjects)} prop objects")
+
+        # Collision geometry
         collisionObjects = []
         if self.import_collision_geom:
             # Load collision meshes
@@ -189,21 +79,25 @@ class BattleMapBlenderImporter:
             collisionObjects += collisionTriangleObjects
             collisionObjects += collisionPlaneObjects
             collisionObjects += collisionBoxObjects
+        print(f"Loaded {len(collisionObjects)} collision objects")
+
+        # Spawn points
         spawnPointObjects = []
         if self.import_spawn_points:
             # Create spawn points
             for spawnPointData in self.mapData.spawnPoints:
                 ob = self.createBlenderSpawnPoint(spawnPointData)
                 spawnPointObjects.append(ob)
+        print(f"Loaded {len(spawnPointObjects)} spawn points")
 
         # Create container object to store all our objects
         objects = propObjects + collisionObjects + spawnPointObjects
         mapOB = bpy.data.objects.new("BattleMap", None)
-        mapOB.empty_display_size = 100
+        mapOB.empty_display_size = 100 # Alternativa use a x100 scale
         mapOB.scale = (self.map_scale_factor, self.map_scale_factor, self.map_scale_factor)
         objects.append(mapOB)
 
-        # Create empty objects to house each type of object
+        # Create empty objects to group each type of object
         if self.import_static_geom:
             groupOB = bpy.data.objects.new("StaticGeometry", None)
             groupOB.parent = mapOB
@@ -223,6 +117,7 @@ class BattleMapBlenderImporter:
             for ob in spawnPointObjects:
                 ob.parent = groupOB
 
+        # Lighting data
         if self.import_lightmapdata:
             # Create a sun light object
             li = bpy.data.lights.new("DirectionalLight", "SUN")
@@ -252,7 +147,7 @@ class BattleMapBlenderImporter:
         # First check if we've already loaded the required prop library
         if not libraryName in self.libraryCache:
             # Load the proplib
-            libraryPath = f"{self.propLibrarySourcePath}/{libraryName}" # XXX: Get platform agnostic way of doing this
+            libraryPath = f"{self.propLibrarySourcePath}/{libraryName}"
             library = PropLibrary(libraryPath)
             self.libraryCache[libraryName] = library
 
@@ -260,6 +155,7 @@ class BattleMapBlenderImporter:
 
     def tryLoadTexture(self, textureName, libraryName):
         if libraryName == None:
+            # For some reason Remaster proplib is alwaus marked as None? This is not true for the ny2024 remaster prop lib though
             libraryName = "Remaster"
 
         propLibrary = self.getPropLibrary(libraryName)
@@ -302,6 +198,7 @@ class BattleMapBlenderImporter:
         # Material
         ma = self.materials[propData.materialID]
         if len(propOB.data.materials) != 0:
+            # Create a duplicate mesh object if it needs a different material, XXX: could probably cache these to reuse datablocks
             if propOB.data.materials[0] != ma:
                 propOB.data = propOB.data.copy()
                 propOB.data.materials[0] = ma
@@ -431,3 +328,117 @@ class BattleMapBlenderImporter:
             pass # Unknown shader
 
         return ma
+
+class PropLibrary:
+    propGroups = {}
+    def __init__(self, directory):
+        self.directory = directory
+        self.libraryInfo = {}
+
+        # Load library info
+        with open(f"{self.directory}/library.json", "r") as file: self.libraryInfo = load(file)
+        print(f"Loaded prop library: " + self.libraryInfo["name"])
+
+    def getProp(self, propName, groupName):
+        # Create the prop group if it's not already loaded
+        if not groupName in self.propGroups:
+            self.propGroups[groupName] = {}
+        
+        # Load the prop if it's not already loaded
+        if not propName in self.propGroups[groupName]:
+            # Find the prop group
+            groupInfo = None
+            for group in self.libraryInfo["groups"]:
+                if group["name"] == groupName:
+                    groupInfo = group
+                    break
+            if groupInfo == None:
+                raise RuntimeError(f"Unable to find prop group with name {groupName} in " + self.libraryInfo["name"])
+            
+            # Find the prop
+            propInfo = None
+            for prop in groupInfo["props"]:
+                if prop["name"] == propName:
+                    propInfo = prop
+                    break
+            if propInfo == None:
+                raise RuntimeError(f"Unable to find prop with name {propName} in {groupName} from " + self.libraryInfo["name"])
+            
+            # Create the prop
+            prop = Prop()
+            meshInfo = propInfo["mesh"]
+            spriteInfo = propInfo["sprite"]
+            if meshInfo != None:
+                modelPath = f"{self.directory}/" + meshInfo["file"]
+                prop.loadModel(modelPath)
+            elif spriteInfo != None:
+                prop.loadSprite(propInfo)
+            else:
+                #XXX: Uhhhhhh, empty prop?
+                pass
+            self.propGroups[groupName][propName] = prop
+        
+        return self.propGroups[groupName][propName]
+
+    def getTexture(self, textureName):
+        im = load_image(textureName, self.directory)
+        return im
+
+class Prop:
+    def __init__(self):
+        self.objects = []
+        self.mainObject = None
+
+    def loadModel(self, modelPath):
+        fileExtension = modelPath.split(".")[-1]
+        if fileExtension == "a3d":
+            modelData = A3D()
+            with open(modelPath, "rb") as file: modelData.read(file)
+
+            # Import the model
+            modelImporter = A3DBlenderImporter(modelData, None, reset_empty_transform=False, try_import_textures=False)
+            self.objects = modelImporter.importData()
+        elif fileExtension == "3ds":
+            bpy.ops.import_scene.max3ds(filepath=modelPath, use_apply_transform=False)
+            for ob in bpy.context.selectable_objects:
+                # The imported objects are added to the active collection, remove them
+                bpy.context.collection.objects.unlink(ob)
+                
+                # Correct the origin XXX: this does not work for all cases, investigate more
+                ob.animation_data_clear()
+                x, y, z = -ob.location.x, -ob.location.y, -ob.location.z
+                objectOrigin = Matrix.Translation((x, y, z))
+                ob.data.transform(objectOrigin)
+                ob.location = (0.0, 0.0, 0.0)
+
+                self.objects.append(ob)
+        else:
+            raise RuntimeError(f"Unknown model file extension: {fileExtension}")
+        
+        # Identify the main parent object
+        for ob in self.objects:
+            if ob.parent == None: self.mainObject = ob
+        if self.mainObject == None:
+            raise RuntimeError(f"Unable to find the parent object for: {modelPath}")
+
+    def loadSprite(self, propInfo):
+        spriteInfo = propInfo["sprite"]
+
+        # Create a plane we can use for the sprite
+        me = bpy.data.meshes.new(propInfo["name"])
+
+        # bm = bmesh.new()
+        # bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=spriteInfo["scale"]*100)
+        # bm.to_mesh(me)
+        # bm.free()
+
+        ob = bpy.data.objects.new(me.name, me)
+
+        # Assign data
+        ob.scale = (spriteInfo["width"], 1.0, spriteInfo["height"]) #XXX: this should involve spriteInfo["scale"] probably?
+        spriteOrigin = Matrix.Translation((0.0, spriteInfo["originY"], 0.0))
+        me.transform(spriteOrigin)
+
+        # Finalise
+        self.objects.append(ob)
+        self.mainObject = ob
