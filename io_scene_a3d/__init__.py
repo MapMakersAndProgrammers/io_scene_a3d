@@ -22,7 +22,7 @@ SOFTWARE.
 
 import bpy
 from bpy.types import Operator, OperatorFileListElement, AddonPreferences
-from bpy.props import StringProperty, BoolProperty, CollectionProperty
+from bpy.props import StringProperty, BoolProperty, CollectionProperty, FloatProperty
 from bpy_extras.io_utils import ImportHelper
 
 from .A3D import A3D
@@ -112,6 +112,7 @@ class ImportBattleMap(Operator, ImportHelper):
     import_collision_geom: BoolProperty(name="Import collision geometry", description="Collision geometry defines the geometry used for collision checks and cannot normally be seen by players", default=False)
     import_spawn_points: BoolProperty(name="Import spawn points", description="Places a marker at locations where tanks can spawn", default=False)
     import_lightmapdata: BoolProperty(name="Import lighting information", description="Loads the lightmapdata file which stores information about the sun, ambient lighting and shadow settings. Only works on remaster maps.", default=True)
+    map_scale_factor: FloatProperty(name="Map scale", description="Sets the map's default scale, maps and models are at a 100x scale so this allows you to directly import the map in the right size.", default=0.01, min=0.0, soft_max=1.0)
 
     def draw(self, context):
         import_panel_options_battlemap(self.layout, self)
@@ -139,7 +140,7 @@ class ImportBattleMap(Operator, ImportHelper):
 
         # Import data into blender
         preferences = context.preferences.addons[__package__].preferences # TODO: check if this is set before proceeding
-        mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.import_static_geom, self.import_collision_geom, self.import_spawn_points, self.import_lightmapdata)
+        mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.map_scale_factor, self.import_static_geom, self.import_collision_geom, self.import_spawn_points, self.import_lightmapdata)
         objects = mapImporter.importData()
 
         # Link objects
@@ -171,6 +172,7 @@ def import_panel_options_battlemap(layout, operator):
         body.prop(operator, "import_collision_geom")
         body.prop(operator, "import_spawn_points")
         body.prop(operator, "import_lightmapdata")
+        body.prop(operator, "map_scale_factor")
 
 def menu_func_import_a3d(self, context):
     self.layout.operator(ImportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")

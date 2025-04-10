@@ -150,10 +150,11 @@ class BattleMapBlenderImporter:
     # Allows subsequent map loads to be faster
     libraryCache = {}
 
-    def __init__(self, mapData, lightmapData, propLibrarySourcePath, import_static_geom=True, import_collision_geom=False, import_spawn_points=False, import_lightmapdata=False):
+    def __init__(self, mapData, lightmapData, propLibrarySourcePath, map_scale_factor=0.01, import_static_geom=True, import_collision_geom=False, import_spawn_points=False, import_lightmapdata=False):
         self.mapData = mapData
         self.lightmapData = lightmapData
         self.propLibrarySourcePath = propLibrarySourcePath
+        self.map_scale_factor = map_scale_factor
         self.import_static_geom = import_static_geom
         self.import_collision_geom = import_collision_geom
         self.import_spawn_points = import_spawn_points
@@ -195,20 +196,29 @@ class BattleMapBlenderImporter:
                 ob = self.createBlenderSpawnPoint(spawnPointData)
                 spawnPointObjects.append(ob)
 
-        # Create empty objects to house each type of object
+        # Create container object to store all our objects
         objects = propObjects + collisionObjects + spawnPointObjects
+        mapOB = bpy.data.objects.new("BattleMap", None)
+        mapOB.empty_display_size = 100
+        mapOB.scale = (self.map_scale_factor, self.map_scale_factor, self.map_scale_factor)
+        objects.append(mapOB)
+
+        # Create empty objects to house each type of object
         if self.import_static_geom:
             groupOB = bpy.data.objects.new("StaticGeometry", None)
+            groupOB.parent = mapOB
             objects.append(groupOB)
             for ob in propObjects:
                 ob.parent = groupOB
         if self.import_collision_geom:
             groupOB = bpy.data.objects.new("CollisionGeometry", None)
+            groupOB.parent = mapOB
             objects.append(groupOB)
             for ob in collisionObjects:
                 ob.parent = groupOB
         if self.import_spawn_points:
             groupOB = bpy.data.objects.new("SpawnPoints", None)
+            groupOB.parent = mapOB
             objects.append(groupOB)
             for ob in spawnPointObjects:
                 ob.parent = groupOB
@@ -223,6 +233,8 @@ class BattleMapBlenderImporter:
             lightAngleX, lightAngleZ = self.lightmapData.lightAngle
             ob.rotation_mode = "XYZ"
             ob.rotation_euler = (lightAngleX, 0.0, lightAngleZ)
+
+            ob.parent = mapOB
             objects.append(ob)
 
             # Set ambient world light
