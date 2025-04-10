@@ -46,6 +46,10 @@ class BattleMapBlenderImporter:
         self.import_spawn_points = import_spawn_points
         self.import_lightmapdata = import_lightmapdata
 
+        # Cache for collision meshes, don't cache triangles because they are set using unique vertices
+        self.collisionPlaneMesh = None
+        self.collisionBoxMesh = None
+
         self.materials = {}
 
     def importData(self):
@@ -68,6 +72,19 @@ class BattleMapBlenderImporter:
         # Collision geometry
         collisionObjects = []
         if self.import_collision_geom:
+            # Create collision meshes
+            self.collisionPlaneMesh = bpy.data.meshes.new("collisionPlane")
+            bm = bmesh.new()
+            bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.0)
+            bm.to_mesh(self.collisionPlaneMesh)
+            bm.free()
+
+            self.collisionBoxMesh = bpy.data.meshes.new("collisionBox")
+            bm = bmesh.new()
+            bmesh.ops.create_cube(bm)
+            bm.to_mesh(self.collisionBoxMesh)
+            bm.free()
+
             # Load collision meshes
             collisionTriangles = self.mapData.collisionGeometry.triangles + self.mapData.collisionGeometryOutsideGamingZone.triangles
             collisionTriangleObjects = self.createBlenderCollisionTriangles(collisionTriangles)
@@ -242,16 +259,8 @@ class BattleMapBlenderImporter:
     def createBlenderCollisionPlanes(self, collisionPlanes):
         objects = []
         for collisionPlane in collisionPlanes:
-            # Create the mesh
-            me = bpy.data.meshes.new("collisionPlane")
-            
-            bm = bmesh.new()
-            bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=1.0)
-            bm.to_mesh(me)
-            bm.free()
-
             # Create object
-            ob = bpy.data.objects.new("collisionPlane", me)
+            ob = bpy.data.objects.new("collisionPlane", self.collisionPlaneMesh)
             ob.location = collisionPlane.position
             ob.rotation_mode = "XYZ"
             ob.rotation_euler = collisionPlane.rotation
@@ -264,16 +273,8 @@ class BattleMapBlenderImporter:
     def createBlenderCollisionBoxes(self, collisionBoxes):
         objects = []
         for collisionBox in collisionBoxes:
-            # Create the mesh
-            me = bpy.data.meshes.new("collisionBox")
-            
-            bm = bmesh.new()
-            bmesh.ops.create_cube(bm)
-            bm.to_mesh(me)
-            bm.free()
-
             # Create object
-            ob = bpy.data.objects.new("collisionBox", me)
+            ob = bpy.data.objects.new("collisionBox", self.collisionBoxMesh)
             ob.location = collisionBox.position
             ob.rotation_mode = "XYZ"
             ob.rotation_euler = collisionBox.rotation
