@@ -75,10 +75,10 @@ class Prop:
         # Create a plane we can use for the sprite
         me = bpy.data.meshes.new(propInfo["name"])
 
-        bm = bmesh.new()
-        bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=spriteInfo["scale"]*100)
-        bm.to_mesh(me)
-        bm.free()
+        # bm = bmesh.new()
+        # bmesh.ops.create_grid(bm, x_segments=1, y_segments=1, size=spriteInfo["scale"]*100)
+        # bm.to_mesh(me)
+        # bm.free()
 
         ob = bpy.data.objects.new(me.name, me)
 
@@ -290,7 +290,9 @@ class BattleMapBlenderImporter:
         # Material
         ma = self.materials[propData.materialID]
         if len(propOB.data.materials) != 0:
-            propOB.data.materials[0] = ma
+            if propOB.data.materials[0] != ma:
+                propOB.data = propOB.data.copy()
+                propOB.data.materials[0] = ma
 
         return propOB
     
