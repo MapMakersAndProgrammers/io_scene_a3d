@@ -31,7 +31,6 @@ from .BattleMap import BattleMap
 from .BattleMapBlenderImporter import BattleMapBlenderImporter
 from .LightmapData import LightmapData
 
-from glob import glob
 from time import time
 
 '''
@@ -112,6 +111,7 @@ class ImportBattleMap(Operator, ImportHelper):
     import_static_geom: BoolProperty(name="Import static geometry", description="Static geometry includes all the visual aspects of the map", default=True)
     import_collision_geom: BoolProperty(name="Import collision geometry", description="Collision geometry defines the geometry used for collision checks and cannot normally be seen by players", default=False)
     import_spawn_points: BoolProperty(name="Import spawn points", description="Places a marker at locations where tanks can spawn", default=False)
+    import_lightmapdata: BoolProperty(name="Import lighting information", description="Loads the lightmapdata file which stores information about the sun, ambient lighting and shadow settings. Only works on remaster maps.", default=True)
 
     def draw(self, context):
         import_panel_options_battlemap(self.layout, self)
@@ -124,9 +124,14 @@ class ImportBattleMap(Operator, ImportHelper):
         
         importStartTime = time()
 
+        # lightmapdata files only exist for remaster maps
         lightmapData = LightmapData()
-        with open(f"{self.directory}/lightmapdata", "rb") as file:
-            lightmapData.read(file)
+        if self.import_lightmapdata:
+            try:
+                with open(f"{self.directory}/lightmapdata", "rb") as file: lightmapData.read(file)
+            except:
+                print("Couldn't open lightmapdata file, ignoring")
+                self.import_lightmapdata = False
 
         mapData = BattleMap()
         with open(self.filepath, "rb") as file:
@@ -134,7 +139,7 @@ class ImportBattleMap(Operator, ImportHelper):
 
         # Import data into blender
         preferences = context.preferences.addons[__package__].preferences # TODO: check if this is set before proceeding
-        mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.import_static_geom, self.import_collision_geom, self.import_spawn_points)
+        mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.import_static_geom, self.import_collision_geom, self.import_spawn_points, self.import_lightmapdata)
         objects = mapImporter.importData()
 
         # Link objects
@@ -165,6 +170,7 @@ def import_panel_options_battlemap(layout, operator):
         body.prop(operator, "import_static_geom")
         body.prop(operator, "import_collision_geom")
         body.prop(operator, "import_spawn_points")
+        body.prop(operator, "import_lightmapdata")
 
 def menu_func_import_a3d(self, context):
     self.layout.operator(ImportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
