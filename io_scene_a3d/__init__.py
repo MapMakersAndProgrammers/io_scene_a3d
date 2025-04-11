@@ -31,6 +31,7 @@ from .BattleMap import BattleMap
 from .BattleMapBlenderImporter import BattleMapBlenderImporter
 from .LightmapData import LightmapData
 
+from os.path import isdir
 from time import time
 
 '''
@@ -39,7 +40,7 @@ Addon preferences
 class Preferences(AddonPreferences):
     bl_idname = __package__
 
-    propLibrarySourcePath: StringProperty(name="Prop library source path", subtype='FILE_PATH')
+    propLibrarySourcePath: StringProperty(name="Prop library source path", subtype='DIR_PATH')
 
     def draw(self, context):
         layout = self.layout
@@ -74,7 +75,7 @@ class ImportA3D(Operator, ImportHelper):
 
         objects = []
         for file in self.files:
-            filepath = self.directory + file.name
+            filepath = f"{self.directory}/{file.name}"
             # Read the file
             print(f"Reading A3D data from {filepath}")
             modelData = A3D()
@@ -122,7 +123,6 @@ class ImportBattleMap(Operator, ImportHelper):
     
     def execute(self, context):
         print(f"Reading BattleMap data from {self.filepath}")
-        
         importStartTime = time()
 
         # lightmapdata files only exist for remaster maps
@@ -134,12 +134,15 @@ class ImportBattleMap(Operator, ImportHelper):
                 print("Couldn't open lightmapdata file, ignoring")
                 self.import_lightmapdata = False
 
+        # read map data
         mapData = BattleMap()
         with open(self.filepath, "rb") as file:
             mapData.read(file)
 
         # Import data into blender
-        preferences = context.preferences.addons[__package__].preferences # TODO: check if this is set before proceeding
+        preferences = context.preferences.addons[__package__].preferences
+        if not isdir(preferences.propLibrarySourcePath):
+            raise RuntimeError("Please set a valid prop library folder in addon properties!")
         mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.map_scale_factor, self.import_static_geom, self.import_collision_geom, self.import_spawn_points, self.import_lightmapdata)
         objects = mapImporter.importData()
 
