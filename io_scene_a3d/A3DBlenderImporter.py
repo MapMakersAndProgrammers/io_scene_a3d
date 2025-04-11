@@ -32,21 +32,7 @@ from .A3DObjects import (
     A3D_VERTEXTYPE_COLOR,
     A3D_VERTEXTYPE_NORMAL2
 )
-
-def addImageTextureToMaterial(image, node_tree):
-    nodes = node_tree.nodes
-    links = node_tree.links
-    
-    # Check if this material already has a texture on it
-    if len(nodes) > 2:
-        return
-
-    # Create nodes
-    principledBSDFNode = nodes[0]
-    textureNode = nodes.new(type="ShaderNodeTexImage")
-    links.new(textureNode.outputs["Color"], principledBSDFNode.inputs["Base Color"])
-    # Apply image
-    if image != None: textureNode.image = image
+from .BlenderMaterialUtils import addImageTextureToMaterial
 
 def mirrorUVY(uv):
     x, y = uv
@@ -171,8 +157,16 @@ class A3DBlenderImporter:
                 me.polygons[faceI+faceIndexBase].material_index = submeshI
             faceIndexBase += submesh.indexCount//3
 
-        # Finalise
+        #XXX: call this before we assign split normals, if you do not it causes a segmentation fault
         me.validate()
+
+        # Split normals
+        if len(normal1) != 0:
+            me.normals_split_custom_set_from_vertices(normal1)
+        elif len(normal2) != 0:
+            me.normals_split_custom_set_from_vertices(normal2)
+
+        # Finalise
         me.update()
         return me
 
