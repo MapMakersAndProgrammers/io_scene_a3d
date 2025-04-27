@@ -79,11 +79,11 @@ class A3DBlenderExporter:
         transformParentIDs = []
         for ob in self.objects:
             parentOB = ob.parent
-            if (parentOB == None) or (ob.name not in transforms):
+            if (parentOB == None) or (parentOB.name not in transforms):
                 transformParentIDs.append(0) #XXX: this is only for version 2
             else:
-                parentIndex = list(transforms.keys()).index(ob.name)
-                transformParentIDs.append(parentIndex)
+                parentIndex = list(transforms.keys()).index(parentOB.name)
+                transformParentIDs.append(parentIndex+1)
 
         self.modelData.materials = materials.values()
         self.modelData.meshes = meshes

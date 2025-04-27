@@ -71,11 +71,11 @@ class A3DBlenderImporter:
         for obI, ob in enumerate(objects):
             # Assign parents
             parentID = self.modelData.transformParentIDs[obI]
-            if parentID == 0 and self.modelData.version < 3:
+            if self.modelData.version < 3:
                 # version 2 models use 0 to signify empty parent
-                continue
-            elif parentID == -1:
-                # version 3 models use -1 to signify empty parent
+                parentID -= 1
+            if parentID == -1:
+                # empty parent
                 continue
             parentOB = objects[parentID]
             ob.parent = parentOB
