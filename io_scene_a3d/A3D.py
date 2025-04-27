@@ -20,7 +20,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from .IOTools import unpackStream, readNullTerminatedString, calculatePadding
+from io import BytesIO
+
+from .IOTools import unpackStream, packStream, readNullTerminatedString, calculatePadding
 from . import A3DObjects
 
 '''
@@ -65,11 +67,31 @@ class A3D:
             self.readRootBlock2(stream)
         elif self.version == 3:
             self.readRootBlock3(stream)
+        else:
+            raise RuntimeError(f"Unknown A3D version: {self.version}")
+
+    def write(self, stream, version=2):
+        # Write header data
+        stream.write(A3D_SIGNATURE)
+        packStream("<2H", stream, version, 0)
+        
+        # Write root block
+        if version == 1:
+            self.writeRootBlock1(stream)
+        elif version == 2:
+            self.writeRootBlock2(stream)
+        elif version == 3:
+            self.writeRootBlock3(stream)
+        else:
+            raise RuntimeError(f"Unknown A3D version: {version} whilst writing A3D")
 
     '''
     Root data blocks
     '''
     def readRootBlock1(self, stream):
+        raise RuntimeError("Version 1 files are not supported yet")
+
+    def writeRootBlock1(self, stream):
         raise RuntimeError("Version 1 files are not supported yet")
 
     def readRootBlock2(self, stream):
@@ -84,6 +106,21 @@ class A3D:
         self.readMeshBlock2(stream)
         self.readTransformBlock2(stream)
         self.readObjectBlock2(stream)
+
+    def writeRootBlock2(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing root block")
+        self.writeMaterialBlock2(buffer)
+        self.writeMeshBlock2(buffer)
+        self.writeTransformBlock2(buffer)
+        self.writeObjectBlock2(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_ROOTBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
 
     def readRootBlock3(self, stream):
         # Verify signature
@@ -101,6 +138,9 @@ class A3D:
         padding = calculatePadding(length)
         stream.read(padding)
 
+    def writeRootBlock3(self, stream):
+        raise RuntimeError("Version 3 files are not supported yet")
+
     '''
     Material data blocks
     '''
@@ -116,6 +156,20 @@ class A3D:
             material = A3DObjects.A3DMaterial()
             material.read2(stream)
             self.materials.append(material)
+    
+    def writeMaterialBlock2(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing material block")
+        packStream("<I", buffer, len(self.materials))
+        for material in self.materials:
+            material.write2(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_MATERIALBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read()) 
     
     def readMaterialBlock3(self, stream):
         # Verify signature
@@ -149,6 +203,20 @@ class A3D:
             mesh = A3DObjects.A3DMesh()
             mesh.read2(stream)
             self.meshes.append(mesh)
+
+    def writeMeshBlock2(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing mesh block")
+        packStream("<I", buffer, len(self.meshes))
+        for mesh in self.meshes:
+            mesh.write2(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_MESHBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
 
     def readMeshBlock3(self, stream):
         # Verify signature
@@ -187,6 +255,22 @@ class A3D:
             parentID, = unpackStream("<i", stream)
             self.transformParentIDs.append(parentID)
 
+    def writeTransformBlock2(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing transform block")
+        packStream("<I", buffer, len(self.transforms))
+        for transform in self.transforms:
+            transform.write2(buffer)
+        for parentID in self.transformParentIDs:
+            packStream("<i", buffer, parentID)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_TRANSFORMBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
+
     def readTransformBlock3(self, stream):
         # Verify signature
         signature, length, transformCount = unpackStream("<3I", stream)
@@ -224,6 +308,20 @@ class A3D:
             objec = A3DObjects.A3DObject()
             objec.read2(stream)
             self.objects.append(objec)
+
+    def writeObjectBlock2(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing object block")
+        packStream("<I", buffer, len(self.objects))
+        for objec in self.objects:
+            objec.write2(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_OBJECTBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
 
     def readObjectBlock3(self, stream):
         # Verify signature
