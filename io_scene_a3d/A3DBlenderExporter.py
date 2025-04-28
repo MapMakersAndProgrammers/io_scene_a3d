@@ -106,10 +106,16 @@ class A3DBlenderExporter:
         uv1Buffer = A3DObjects.A3DVertexBuffer()
         uv1Buffer.bufferType = A3D_VERTEXTYPE_UV1
         uv1Data = me.uv_layers[0]
-        for vertex in uv1Data.uv:
-            uv1Buffer.data.append(vertex.vector)
-        mesh.vertexBufferCount = 2 #XXX: We only do coordinate, normal1 and uv1
-        mesh.vertexBuffers = [coordinateBuffer, normal1Buffer]
+        uv1Vertices = [(0.0, 0.0)] * mesh.vertexCount
+        for polygon in me.polygons:
+            i0, i1, i2 = polygon.vertices
+            uv1Vertices[i0] = uv1Data.uv[polygon.loop_start].vector
+            uv1Vertices[i1] = uv1Data.uv[polygon.loop_start+1].vector
+            uv1Vertices[i2] = uv1Data.uv[polygon.loop_start+2].vector
+        uv1Buffer.data = uv1Vertices
+
+        mesh.vertexBufferCount = 3 #XXX: We only do coordinate, normal1 and uv1
+        mesh.vertexBuffers = [coordinateBuffer, uv1Buffer, normal1Buffer]
 
         # Create submeshes
         indexArrays = {} # material_index: index array
