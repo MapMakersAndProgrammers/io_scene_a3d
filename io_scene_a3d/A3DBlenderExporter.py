@@ -106,6 +106,7 @@ class A3DBlenderExporter:
 
     def buildA3DMesh(self, me, ob):
         mesh = A3DObjects.A3DMesh()
+        mesh.name = me.name
         mesh.vertexCount = len(me.vertices)
 
         # Create vertex buffers
