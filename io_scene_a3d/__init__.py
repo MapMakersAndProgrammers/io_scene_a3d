@@ -22,7 +22,7 @@ SOFTWARE.
 
 import bpy
 from bpy.types import Operator, OperatorFileListElement, AddonPreferences
-from bpy.props import StringProperty, BoolProperty, CollectionProperty, FloatProperty
+from bpy.props import StringProperty, BoolProperty, CollectionProperty, FloatProperty, EnumProperty
 from bpy_extras.io_utils import ImportHelper, ExportHelper
 
 from .A3D import A3D
@@ -109,8 +109,18 @@ class ExportA3D(Operator, ExportHelper):
     filter_glob: StringProperty(default="*.a3d", options={'HIDDEN'})
     filename_ext: StringProperty(default=".a3d", options={'HIDDEN'})
 
+    a3d_version: EnumProperty(
+        items=(
+            ("2", "A3D2", "Version 2 files are used to store map geometry like props and simple models like drones and particle effects"),
+            ("3", "A3D3", "Version 3 files are used to store tank turret and hull models")
+        ),
+        description="A3D file version",
+        default="2",
+        name="version"
+    )
+
     def draw(self, context):
-        pass
+        export_panel_options_a3d(self.layout, self)
 
     def invoke(self, context, event):
         return ExportHelper.invoke(self, context, event)
@@ -119,12 +129,12 @@ class ExportA3D(Operator, ExportHelper):
         print(f"Exporting blender data to {self.filepath}")
 
         modelData = A3D()
-        modelExporter = A3DBlenderExporter(modelData, bpy.context.selected_objects)
+        modelExporter = A3DBlenderExporter(modelData, bpy.context.selected_objects, version=int(self.a3d_version))
         modelExporter.exportData()
 
         # Write file
         with open(self.filepath, "wb") as file:
-            modelData.write(file, version=2)
+            modelData.write(file, version=int(self.a3d_version))
 
         return {"FINISHED"}
 
@@ -195,6 +205,12 @@ def import_panel_options_a3d(layout, operator):
         body.prop(operator, "create_collection")
         body.prop(operator, "try_import_textures")
         body.prop(operator, "reset_empty_transform")
+
+def export_panel_options_a3d(layout, operator):
+    header, body = layout.panel("alternativa_import_options", default_closed=False)
+    header.label(text="Options")
+    if body:
+        body.prop(operator, "a3d_version")
 
 def import_panel_options_battlemap(layout, operator):
     header, body = layout.panel("tanki_battlemap_import_options", default_closed=False)
