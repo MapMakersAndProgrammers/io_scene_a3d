@@ -57,3 +57,12 @@ def readLengthPrefixedString(stream):
     stream.read(paddingSize)
 
     return string.decode("utf8", errors="ignore")
+
+def writeLengthPrefixedString(stream, string):
+    string = string.encode("utf-8")
+
+    packStream("<I", stream, len(string))
+    stream.write(string)
+
+    paddingSize = calculatePadding(len(string))
+    stream.write(b"\x00" * paddingSize)

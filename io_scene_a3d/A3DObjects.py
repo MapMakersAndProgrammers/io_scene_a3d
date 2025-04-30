@@ -20,7 +20,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-from .IOTools import unpackStream, packStream, readNullTerminatedString, writeNullTerminatedString, readLengthPrefixedString, calculatePadding
+from .IOTools import unpackStream, packStream, readNullTerminatedString, writeNullTerminatedString, readLengthPrefixedString, writeLengthPrefixedString, calculatePadding
 
 class A3DMaterial:
     def __init__(self):
@@ -47,6 +47,12 @@ class A3DMaterial:
         self.diffuseMap = readLengthPrefixedString(stream)
 
         print(f"[A3DMaterial name: {self.name} color: {self.color} diffuse map: {self.diffuseMap}]")
+
+    def write3(self, stream):
+        writeLengthPrefixedString(stream, self.name)
+        colorR, colorG, colorB = self.color
+        packStream("<3f", stream, colorR, colorG, colorB)
+        writeLengthPrefixedString(stream, self.diffuseMap)
 
 class A3DMesh:
     def __init__(self):
@@ -109,6 +115,24 @@ class A3DMesh:
             self.submeshes.append(submesh)
         
         print(f"[A3DMesh name: {self.name} bbox max: {self.bboxMax} bbox min: {self.bboxMin} vertex buffers: {len(self.vertexBuffers)} submeshes: {len(self.submeshes)}]")
+
+    def write3(self, stream):
+        writeLengthPrefixedString(stream, self.name)
+        bboxMaxX, bboxMaxY, bboxMaxZ = self.bboxMax
+        packStream("<3f", stream, bboxMaxX, bboxMaxY, bboxMaxZ)
+        bboxMinX, bboxMinY, bboxMinZ = self.bboxMin
+        packStream("<3f", stream, bboxMinX, bboxMinY, bboxMinZ)
+        packStream("<f", stream, 0.0) # XXX: Unknown float value!
+
+        # Write vertex buffers
+        packStream("<2I", stream, self.vertexCount, self.vertexBufferCount)
+        for vertexBuffer in self.vertexBuffers:
+            vertexBuffer.write2(stream)
+        
+        # Write submeshes
+        packStream("<I", stream, self.submeshCount)
+        for submesh in self.submeshes:
+            submesh.write3(stream)
 
 A3D_VERTEXTYPE_COORDINATE = 1
 A3D_VERTEXTYPE_UV1 = 2
@@ -179,10 +203,19 @@ class A3DSubmesh:
         self.indices = list(unpackStream(f"<{self.indexCount}H", stream))
         
         # Padding
-        padding = calculatePadding(self.indexCount*2) # Each index is 2 bytes
-        stream.read(padding)
+        paddingSize = calculatePadding(self.indexCount*2) # Each index is 2 bytes
+        stream.read(paddingSize)
 
         print(f"[A3DSubmesh indices: {len(self.indices)} smoothing groups: {len(self.smoothingGroups)} materialID: {self.materialID}]")
+
+    def write3(self, stream):
+        packStream("<I", stream, self.indexCount)
+        for index in self.indices:
+            packStream("<H", stream, index)
+        
+        # Padding
+        paddingSize = calculatePadding(self.indexCount*2) # Each index is 2 bytes
+        stream.write(b"\x00" * paddingSize)
 
 class A3DTransform:
     def __init__(self):
@@ -214,6 +247,15 @@ class A3DTransform:
 
         print(f"[A3DTransform name: {self.name} position: {self.position} rotation: {self.rotation} scale: {self.scale}]")
 
+    def write3(self, stream):
+        writeLengthPrefixedString(stream, self.name)
+        positionX, positionY, positionZ = self.position
+        packStream("<3f", stream, positionX, positionY, positionZ)
+        rotationX, rotationY, rotationZ, rotationW = self.rotation
+        packStream("<4f", stream, rotationX, rotationY, rotationZ, rotationW)
+        scaleX, scaleY, scaleZ = self.scale
+        packStream("<3f", stream, scaleX, scaleY, scaleZ)
+
 class A3DObject:
     def __init__(self):
         self.name = ""
@@ -242,3 +284,8 @@ class A3DObject:
             self.materialIDs.append(materialID)
 
         print(f"[A3DObject name: {self.name} meshID: {self.meshID} transformID: {self.transformID} materialIDs: {len(self.materialIDs)}]")
+
+    def write3(self, stream):
+        packStream("<3I", stream, self.meshID, self.transformID, self.materialCount)
+        for materialID in self.materialIDs:
+            packStream("<i", stream, materialID)

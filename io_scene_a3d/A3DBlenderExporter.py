@@ -31,9 +31,10 @@ from .A3DObjects import (
 )
 
 class A3DBlenderExporter:
-    def __init__(self, modelData, objects):
+    def __init__(self, modelData, objects, version=2):
         self.modelData = modelData
         self.objects = objects
+        self.version = version
 
     def exportData(self):
         print("Exporting blender data to A3D")
@@ -60,7 +61,7 @@ class A3DBlenderExporter:
 
                 materials[ma.name] = materialData
             # Create mesh
-            mesh = self.buildA3DMesh(me)
+            mesh = self.buildA3DMesh(me, ob)
             meshes.append(mesh)
             # Create transform
             transform = A3DObjects.A3DTransform()
@@ -68,22 +69,34 @@ class A3DBlenderExporter:
             rotationW, rotationX, rotationY, rotationZ = ob.rotation_quaternion
             transform.rotation = (rotationX, rotationY, rotationZ, rotationW)
             transform.scale = ob.scale
+            transform.name = ob.name
             transforms[ob.name] = transform
             # Create object
             objec = A3DObjects.A3DObject()
             objec.name = ob.name
             objec.meshID = len(meshes) - 1
             objec.transformID = len(transforms) - 1
+            materialIDs = []
+            for ma in me.materials:
+                materialID = list(materials.keys()).index(ma.name)
+                materialIDs.append(materialID)
+            objec.materialCount = len(materialIDs)
+            objec.materialIDs = materialIDs
             objects.append(objec)
         # Create parentIDs
         transformParentIDs = []
         for ob in self.objects:
             parentOB = ob.parent
             if (parentOB == None) or (parentOB.name not in transforms):
-                transformParentIDs.append(0) #XXX: this is only for version 2
+                if self.version < 3:
+                    transformParentIDs.append(0)
+                else:
+                    transformParentIDs.append(-1)
             else:
                 parentIndex = list(transforms.keys()).index(parentOB.name)
-                transformParentIDs.append(parentIndex+1)
+                if self.version < 3:
+                    parentIndex += 1 # Version 2 uses 0 to signify empty parent
+                transformParentIDs.append(parentIndex)
 
         self.modelData.materials = materials.values()
         self.modelData.meshes = meshes
@@ -91,7 +104,7 @@ class A3DBlenderExporter:
         self.modelData.transformParentIDs = transformParentIDs
         self.modelData.objects = objects
 
-    def buildA3DMesh(self, me):
+    def buildA3DMesh(self, me, ob):
         mesh = A3DObjects.A3DMesh()
         mesh.vertexCount = len(me.vertices)
 
@@ -136,5 +149,13 @@ class A3DBlenderExporter:
             submeshes.append(submesh)
         mesh.submeshCount = len(submeshes)
         mesh.submeshes = submeshes
+
+        # Bound box data
+        bounds = []
+        for bound in ob.bound_box:
+            x, y, z = bound
+            bounds.append((x, y, z))
+        mesh.bboxMax = max(bounds)
+        mesh.bboxMin = min(bounds)
 
         return mesh

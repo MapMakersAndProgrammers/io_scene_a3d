@@ -139,7 +139,19 @@ class A3D:
         stream.read(padding)
 
     def writeRootBlock3(self, stream):
-        raise RuntimeError("Version 3 files are not supported yet")
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing root block")
+        self.writeMaterialBlock3(buffer)
+        self.writeMeshBlock3(buffer)
+        self.writeTransformBlock3(buffer)
+        self.writeObjectBlock3(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_ROOTBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
 
     '''
     Material data blocks
@@ -188,6 +200,24 @@ class A3D:
         padding = calculatePadding(length)
         stream.read(padding)
 
+    def writeMaterialBlock3(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing material block")
+        packStream("<I", buffer, len(self.materials))
+        for material in self.materials:
+            material.write3(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_MATERIALBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
+
+        # Padding
+        paddingSize = calculatePadding(buffer.tell())
+        stream.write(b"\x00" * paddingSize)
+
     '''
     Mesh data blocks
     '''
@@ -235,6 +265,24 @@ class A3D:
         padding = calculatePadding(length)
         stream.read(padding)
 
+    def writeMeshBlock3(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing mesh block")
+        packStream("<I", buffer, len(self.meshes))
+        for mesh in self.meshes:
+            mesh.write3(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_MESHBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
+
+        # Padding
+        paddingSize = calculatePadding(buffer.tell())
+        stream.write(b"\x00" * paddingSize)
+
     '''
     Transform data blocks
     '''
@@ -279,7 +327,6 @@ class A3D:
 
         # Read data
         print(f"Reading transform block with {transformCount} transforms and length {length}")
-        transforms = []
         for _ in range(transformCount):
             transform = A3DObjects.A3DTransform()
             transform.read3(stream)
@@ -292,6 +339,26 @@ class A3D:
         # Padding
         padding = calculatePadding(length)
         stream.read(padding)
+
+    def writeTransformBlock3(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing transform block")
+        packStream("<I", buffer, len(self.transforms))
+        for transform in self.transforms:
+            transform.write3(buffer)
+        for parentID in self.transformParentIDs:
+            packStream("<i", buffer, parentID)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_TRANSFORMBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
+
+        # Padding
+        paddingSize = calculatePadding(buffer.tell())
+        stream.write(b"\x00" * paddingSize)
 
     '''
     Object data blocks
@@ -339,3 +406,21 @@ class A3D:
         # Padding
         padding = calculatePadding(length)
         stream.read(padding)
+
+    def writeObjectBlock3(self, stream):
+        buffer = BytesIO()
+
+        # Write data to the buffer
+        print("Writing object block")
+        packStream("<I", buffer, len(self.objects))
+        for objec in self.objects:
+            objec.write3(buffer)
+
+        # Write buffer to stream
+        packStream("<2I", stream, A3D_OBJECTBLOCK_SIGNATURE, buffer.tell())
+        buffer.seek(0, 0)
+        stream.write(buffer.read())
+
+        # Padding
+        paddingSize = calculatePadding(buffer.tell())
+        stream.write(b"\x00" * paddingSize)
