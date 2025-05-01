@@ -46,6 +46,17 @@ class A3DBlenderExporter:
         objects = []
         for ob in self.objects:
             me = ob.data
+            if me == None:
+                # Create a transform for this object without the object itself
+                transform = A3DObjects.A3DTransform()
+                transform.position = ob.location
+                rotationW, rotationX, rotationY, rotationZ = ob.rotation_quaternion
+                transform.rotation = (rotationX, rotationY, rotationZ, rotationW)
+                transform.scale = ob.scale
+                transform.name = ob.name
+                transforms[ob.name] = transform
+                
+                continue
 
             # Process materials
             for ma in me.materials:
@@ -128,8 +139,12 @@ class A3DBlenderExporter:
             uv1Vertices[i2] = uv1Data.uv[polygon.loop_start+2].vector
         uv1Buffer.data = uv1Vertices
 
-        mesh.vertexBufferCount = 3 #XXX: We only do coordinate, normal1 and uv1
-        mesh.vertexBuffers = [coordinateBuffer, uv1Buffer, normal1Buffer]
+        normal2Buffer = A3DObjects.A3DVertexBuffer()
+        normal2Buffer.bufferType = A3D_VERTEXTYPE_NORMAL2
+        normal2Buffer.data = normal1Buffer.data
+
+        mesh.vertexBufferCount = 4 #XXX: We only do coordinate, normal1 and uv1
+        mesh.vertexBuffers = [coordinateBuffer, uv1Buffer, normal1Buffer, normal2Buffer]
 
         # Create submeshes
         indexArrays = {} # material_index: index array
