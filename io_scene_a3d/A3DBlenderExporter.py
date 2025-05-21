@@ -30,6 +30,10 @@ from .A3DObjects import (
     A3D_VERTEXTYPE_NORMAL2
 )
 
+def mirrorUVY(uv):
+    x, y = uv
+    return (x, 1-y)
+
 class A3DBlenderExporter:
     def __init__(self, modelData, objects, version=2):
         self.modelData = modelData
@@ -134,17 +138,17 @@ class A3DBlenderExporter:
         uv1Vertices = [(0.0, 0.0)] * mesh.vertexCount
         for polygon in me.polygons:
             i0, i1, i2 = polygon.vertices
-            uv1Vertices[i0] = uv1Data.uv[polygon.loop_start].vector
-            uv1Vertices[i1] = uv1Data.uv[polygon.loop_start+1].vector
-            uv1Vertices[i2] = uv1Data.uv[polygon.loop_start+2].vector
+            uv1Vertices[i0] = mirrorUVY(uv1Data.uv[polygon.loop_start].vector)
+            uv1Vertices[i1] = mirrorUVY(uv1Data.uv[polygon.loop_start+1].vector)
+            uv1Vertices[i2] = mirrorUVY(uv1Data.uv[polygon.loop_start+2].vector)
         uv1Buffer.data = uv1Vertices
 
         normal2Buffer = A3DObjects.A3DVertexBuffer()
         normal2Buffer.bufferType = A3D_VERTEXTYPE_NORMAL2
         normal2Buffer.data = normal1Buffer.data
 
-        mesh.vertexBufferCount = 4 #XXX: We only do coordinate, normal1 and uv1
-        mesh.vertexBuffers = [coordinateBuffer, uv1Buffer, normal1Buffer, normal2Buffer]
+        mesh.vertexBufferCount = 3 #XXX: We only do coordinate, normal1 and uv1
+        mesh.vertexBuffers = [coordinateBuffer, uv1Buffer, normal1Buffer]
 
         # Create submeshes
         indexArrays = {} # material_index: index array
