@@ -367,8 +367,8 @@ class PropLibrary:
             
             # Create the prop
             prop = Prop()
-            meshInfo = propInfo["mesh"]
-            spriteInfo = propInfo["sprite"]
+            meshInfo = propInfo.get("mesh")
+            spriteInfo = propInfo.get("sprite")
             if meshInfo != None:
                 modelPath = f"{self.directory}/" + meshInfo["file"]
                 prop.loadModel(modelPath)
