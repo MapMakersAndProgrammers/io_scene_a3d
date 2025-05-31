@@ -391,7 +391,7 @@ class Prop:
         self.mainObject = None
 
     def loadModel(self, modelPath):
-        fileExtension = modelPath.split(".")[-1]
+        fileExtension = modelPath.split(".")[-1].lower()
         if fileExtension == "a3d":
             modelData = A3D()
             with open(modelPath, "rb") as file: modelData.read(file)
