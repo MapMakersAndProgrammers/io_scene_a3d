@@ -22,11 +22,12 @@ SOFTWARE.
 
 import bpy
 from bpy.types import Operator, OperatorFileListElement, AddonPreferences
-from bpy.props import StringProperty, BoolProperty, CollectionProperty, FloatProperty
-from bpy_extras.io_utils import ImportHelper
+from bpy.props import StringProperty, BoolProperty, CollectionProperty, FloatProperty, EnumProperty
+from bpy_extras.io_utils import ImportHelper, ExportHelper
 
 from .A3D import A3D
 from .A3DBlenderImporter import A3DBlenderImporter
+from .A3DBlenderExporter import A3DBlenderExporter
 from .BattleMap import BattleMap
 from .BattleMapBlenderImporter import BattleMapBlenderImporter
 from .LightmapData import LightmapData
@@ -99,6 +100,44 @@ class ImportA3D(Operator, ImportHelper):
 
         return {"FINISHED"}
 
+class ExportA3D(Operator, ExportHelper):
+    bl_idname = "export_scene.alternativa"
+    bl_label = "Export A3D"
+    bl_description = "Export an A3D model"
+    bl_options = {'PRESET', 'UNDO'}
+
+    filter_glob: StringProperty(default="*.a3d", options={'HIDDEN'})
+    filename_ext: StringProperty(default=".a3d", options={'HIDDEN'})
+
+    a3d_version: EnumProperty(
+        items=(
+            ("2", "A3D2", "Version 2 files are used to store map geometry like props and simple models like drones and particle effects"),
+            ("3", "A3D3", "Version 3 files are used to store tank turret and hull models")
+        ),
+        description="A3D file version",
+        default="2",
+        name="version"
+    )
+
+    def draw(self, context):
+        export_panel_options_a3d(self.layout, self)
+
+    def invoke(self, context, event):
+        return ExportHelper.invoke(self, context, event)
+    
+    def execute(self, context):
+        print(f"Exporting blender data to {self.filepath}")
+
+        modelData = A3D()
+        modelExporter = A3DBlenderExporter(modelData, bpy.context.selected_objects, version=int(self.a3d_version))
+        modelExporter.exportData()
+
+        # Write file
+        with open(self.filepath, "wb") as file:
+            modelData.write(file, version=int(self.a3d_version))
+
+        return {"FINISHED"}
+
 class ImportBattleMap(Operator, ImportHelper):
     bl_idname = "import_scene.tanki_battlemap"
     bl_label = "Import map"
@@ -167,6 +206,12 @@ def import_panel_options_a3d(layout, operator):
         body.prop(operator, "try_import_textures")
         body.prop(operator, "reset_empty_transform")
 
+def export_panel_options_a3d(layout, operator):
+    header, body = layout.panel("alternativa_import_options", default_closed=False)
+    header.label(text="Options")
+    if body:
+        body.prop(operator, "a3d_version")
+
 def import_panel_options_battlemap(layout, operator):
     header, body = layout.panel("tanki_battlemap_import_options", default_closed=False)
     header.label(text="Options")
@@ -180,6 +225,9 @@ def import_panel_options_battlemap(layout, operator):
 def menu_func_import_a3d(self, context):
     self.layout.operator(ImportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
 
+def menu_func_export_a3d(self, context):
+    self.layout.operator(ExportA3D.bl_idname, text="Alternativa3D HTML5 (.a3d)")
+
 def menu_func_import_battlemap(self, context):
     self.layout.operator(ImportBattleMap.bl_idname, text="Tanki Online BattleMap (.bin)")
 
@@ -189,6 +237,7 @@ Registration
 classes = [
     Preferences,
     ImportA3D,
+    ExportA3D,
     ImportBattleMap
 ]
 
@@ -196,12 +245,14 @@ def register():
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_a3d)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_a3d)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import_battlemap)
 
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_a3d)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_a3d)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import_battlemap)
 
 if __name__ == "__main__":

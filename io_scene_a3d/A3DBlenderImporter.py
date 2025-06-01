@@ -64,22 +64,30 @@ class A3DBlenderImporter:
         
         # Create objects
         objects = []
-        for objectData in self.modelData.objects:
-            ob = self.buildBlenderObject(objectData)
+        for transformID, transformData in enumerate(self.modelData.transforms):
+            # Find out if this transform is used by an object
+            ob = None
+            for objectData in self.modelData.objects:
+                if objectData.transformID == transformID:
+                    ob = self.buildBlenderObject(objectData)
+                    break
+            
+            # Empty transform, create an empty object to represent it
+            if ob == None:
+                ob = self.buildBlenderEmptyObject(transformData)
+
             objects.append(ob)
-        # Assign object parents and link to collection
-        for obI, ob in enumerate(objects):
-            # Assign parents
-            parentID = self.modelData.transformParentIDs[obI]
-            if parentID == 0 and self.modelData.version < 3:
-                # version 2 models use 0 to signify empty parent
+
+        # Assign parents
+        for objectID, parentID in enumerate(self.modelData.transformParentIDs):
+            if self.modelData.version < 3:
+                # version 2 models use 0 to signify empty parent so everything is shifted up
+                parentID -= 1
+            if parentID == -1:
                 continue
-            elif parentID == -1:
-                # version 3 models use -1 to signify empty parent
-                continue
-            parentOB = objects[parentID]
-            ob.parent = parentOB
-        
+            ob = objects[objectID]
+            ob.parent = objects[parentID]
+
         return objects
 
     '''
@@ -235,5 +243,22 @@ class A3DBlenderImporter:
                 image = load_image("wheels.webp", self.directory, check_existing=True)
                 # Apply image
                 addImageTextureToMaterial(image, ma.node_tree)
+
+        return ob
+
+    def buildBlenderEmptyObject(self, transformData):
+        # Create the object
+        ob = bpy.data.objects.new(transformData.name, None)
+        ob.empty_display_size = 10 # Assume that the model is in alternativa scale (x100)
+
+        # Set transform
+        ob.location = transformData.position
+        ob.scale = transformData.scale
+        ob.rotation_mode = "QUATERNION"
+        x, y, z, w = transformData.rotation
+        ob.rotation_quaternion = (w, x, y, z)
+        if self.reset_empty_transform:
+            if transformData.scale == (0.0, 0.0, 0.0): ob.scale = (1.0, 1.0, 1.0)
+            if transformData.rotation == (0.0, 0.0, 0.0, 0.0): ob.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
 
         return ob
