@@ -1,6 +1,10 @@
 # io_scene_a3d
 Blender plugin to import the proprietary model format `A3D` used by the game [Tanki Online](https://tankionline.com/en/) from [Alternativa Games](https://alternativa.games/), it is not compatible with older the formats used by the flash based Alternativa3D engine (see [this plugin by Davide Jones](https://github.com/davidejones/alternativa3d_tools) instead). The plugin can also import Tanki Online binary format maps: `map.bin`, both legacy maps and remaster maps work.
 
+## Legal
+Any ripped assets are subject to the Tanki Online [Fan Content Guidelines](https://en.tankiwiki.com/Creating_Fan_Content_Guide) and must only be used for producing fan content like fan art.
+> Using original models, maps, or other in-game assets outside the scope of Tanki Online gameplay or fan art is not allowed. 
+
 ## Installation
 ### Requirements: Blender version 4.2+
 ### Optional: io_scene_3ds plugin for importing legacy maps (non remaster)
