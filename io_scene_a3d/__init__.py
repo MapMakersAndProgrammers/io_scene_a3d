@@ -182,7 +182,7 @@ class ImportBattleMap(Operator, ImportHelper):
         preferences = context.preferences.addons[__package__].preferences
         if not isdir(preferences.propLibrarySourcePath):
             raise RuntimeError("Please set a valid prop library folder in addon properties!")
-        mapImporter = BattleMapBlenderImporter(mapData, lightmapData, preferences.propLibrarySourcePath, self.map_scale_factor, self.import_static_geom, self.import_collision_geom, self.import_spawn_points, self.import_lightmapdata)
+        mapImporter = BattleMapBlenderImporter(mapData, self.directory, lightmapData, preferences.propLibrarySourcePath, self.map_scale_factor, self.import_static_geom, self.import_collision_geom, self.import_spawn_points, self.import_lightmapdata)
         objects = mapImporter.importData()
 
         # Link objects

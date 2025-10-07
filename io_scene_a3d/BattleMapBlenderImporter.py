@@ -36,8 +36,9 @@ class BattleMapBlenderImporter:
     # Allows subsequent map loads to be faster
     libraryCache = {}
 
-    def __init__(self, mapData, lightmapData, propLibrarySourcePath, map_scale_factor=0.01, import_static_geom=True, import_collision_geom=False, import_spawn_points=False, import_lightmapdata=False):
+    def __init__(self, mapData, mapDirectory, lightmapData, propLibrarySourcePath, map_scale_factor=0.01, import_static_geom=True, import_collision_geom=False, import_spawn_points=False, import_lightmapdata=False):
         self.mapData = mapData
+        self.mapDirectory = mapDirectory
         self.lightmapData = lightmapData
         self.propLibrarySourcePath = propLibrarySourcePath
         self.map_scale_factor = map_scale_factor
@@ -51,6 +52,7 @@ class BattleMapBlenderImporter:
         self.collisionBoxMesh = None
 
         self.materials = {}
+        self.modelsA3D = {}
 
     def importData(self):
         print("Importing BattleMap data into blender")
@@ -172,8 +174,11 @@ class BattleMapBlenderImporter:
 
     def tryLoadTexture(self, textureName, libraryName):
         if libraryName == None:
-            # For some reason Remaster proplib is alwaus marked as None? This is not true for the ny2024 remaster prop lib though
+            # For some reason Remaster proplib is always marked as None? This is not true for the ny2024 remaster prop lib though
             libraryName = "Remaster"
+        elif libraryName == "":
+            # This is only true for a material that is using the atlas in case of models.a3d
+            return None
 
         propLibrary = self.getPropLibrary(libraryName)
         texture = propLibrary.getTexture(f"{textureName}.webp")
@@ -182,10 +187,33 @@ class BattleMapBlenderImporter:
     '''
     Blender data builders
     '''
+    def getPropFromModelsA3D(self, propName):
+        if len(self.modelsA3D) == 0:
+            # Load models.a3d
+            modelData = A3D()
+            try:
+                with open(f"{self.mapDirectory}/models.a3d", "rb") as f: modelData.read(f)
+            except: return None
+            modelImporter = A3DBlenderImporter(modelData, None, reset_empty_transform=False, try_import_textures=False)
+            modelObjects = modelImporter.importData()
+        
+            # Create props
+            for ob in modelObjects:
+                prop = Prop()
+                prop.createFromObject(ob)
+                self.modelsA3D[ob.name] = prop
+        
+        return self.modelsA3D[propName]
+
     def getBlenderProp(self, propData):
-        # Load prop
-        propLibrary = self.getPropLibrary(propData.libraryName)
-        prop = propLibrary.getProp(propData.name, propData.groupName)
+        prop = None
+        if propData.libraryName == "":
+            # Load prop from models.a3d first, we prefer it over the library where possible
+            prop = self.getPropFromModelsA3D(propData.name)
+        if prop == None:
+            # Load prop through libraries if we can't find it in models.a3d
+            propLibrary = self.getPropLibrary(propData.libraryName)
+            prop = propLibrary.getProp(propData.name, propData.groupName)
         propOB = prop.mainObject.copy() # We want to use a copy of the prop object
         
         # Assign data
@@ -389,6 +417,10 @@ class Prop:
     def __init__(self):
         self.objects = []
         self.mainObject = None
+
+    def createFromObject(self, ob):
+        self.objects.append(ob)
+        self.mainObject = ob
 
     def loadModel(self, modelPath):
         fileExtension = modelPath.split(".")[-1].lower()
