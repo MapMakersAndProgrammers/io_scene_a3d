@@ -95,7 +95,7 @@ class A3DBlenderImporter:
     '''
     def buildBlenderMaterial(self, materialData):
         ma = bpy.data.materials.new(materialData.name)
-        maWrapper = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+        maWrapper = PrincipledBSDFWrapper(ma, is_readonly=False)
         maWrapper.base_color = materialData.color
         maWrapper.roughness = 1.0
         
