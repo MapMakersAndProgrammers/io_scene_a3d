@@ -300,7 +300,7 @@ class BattleMapBlenderImporter:
 
         # Shader specific logic
         if materialData.shader == "TankiOnline/SingleTextureShader" or materialData.shader == "TankiOnline/SingleTextureShaderWinter":
-            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False)
             bsdf.roughness_set(1.0)
             bsdf.ior_set(1.0)
 
@@ -310,7 +310,7 @@ class BattleMapBlenderImporter:
 
             addImageTextureToMaterial(texture, ma.node_tree)
         elif materialData.shader == "TankiOnline/SpriteShader":
-            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False)
             bsdf.roughness_set(1.0)
             bsdf.ior_set(1.0)
 
@@ -321,7 +321,7 @@ class BattleMapBlenderImporter:
             addImageTextureToMaterial(texture, ma.node_tree, linkAlpha=True)
         elif materialData.shader == "TankiOnline/Terrain":
             # XXX: still need to figure out how to do the terrain properly, all manual attempts have yielded mixed results
-            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False, use_nodes=True)
+            bsdf = PrincipledBSDFWrapper(ma, is_readonly=False)
             bsdf.roughness_set(1.0)
             bsdf.ior_set(1.0)
             bsdf.base_color_set((0.0, 0.0, 0.0))

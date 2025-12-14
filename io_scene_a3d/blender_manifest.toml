@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "alternativa3d_tanki_format"
-version = "1.0.0"
+version = "1.0.1"
 name = "Alternativa3D file format (Tanki Online HTML5)"
 tagline = "Import-Export Alternativa3D 3D models used by Tanki Online HTML5"
 maintainer = "Pyogenics <https://github.com/Pyogenics>"
@@ -11,7 +11,7 @@ website = "https://github.com/MapMakersAndProgrammers/io_scene_a3d"
 
 tags = ["Import-Export"]
 
-blender_version_min = "4.2.0"
+blender_version_min = "5.0.0"
 
 license = [
   "SPDX:MIT",
